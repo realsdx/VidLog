@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Orbitron", sans-serif;
+
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #12121a;
+  --color-bg-elevated: #1a1a2e;
+  --color-border-default: #2a2a3e;
+  --color-text-primary: #e0e0e8;
+  --color-text-secondary: #8888a0;
+  --color-accent-cyan: #00ffff;
+  --color-accent-red: #ff3333;
+  --color-accent-green: #33ff66;
+  --color-accent-amber: #ffa500;
+}
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* Recording pulse animation */
+@keyframes pulse-rec {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.animate-pulse-rec {
+  animation: pulse-rec 1.2s ease-in-out infinite;
+}
+
+/* Glow effect for sci-fi elements */
+@keyframes glow-breathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px var(--color-accent-cyan));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px var(--color-accent-cyan));
+  }
+}
+
+.animate-glow-breathe {
+  animation: glow-breathe 3s ease-in-out infinite;
+}
