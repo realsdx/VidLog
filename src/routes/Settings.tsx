@@ -1,10 +1,11 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, Show, onMount } from "solid-js";
 import { settingsStore } from "~/stores/settings";
 import { templateStore } from "~/stores/template";
 import { diaryStore } from "~/stores/diary";
 import { storageManager } from "~/services/storage/manager";
 import { activateOPFS } from "~/services/init";
-import { isOPFSAvailable } from "~/services/storage/opfs";
+import { isOPFSAvailable, getStorageQuota, formatStorageSize } from "~/services/storage/opfs";
+import type { StorageQuota } from "~/services/storage/opfs";
 import type { VideoQuality, StorageProviderType } from "~/models/types";
 
 export default function Settings() {
@@ -12,6 +13,17 @@ export default function Settings() {
   const templates = templateStore.getTemplates();
   const [switchWarning, setSwitchWarning] = createSignal<string | null>(null);
   const [switching, setSwitching] = createSignal(false);
+  const [quota, setQuota] = createSignal<StorageQuota | null>(null);
+
+  // Load storage quota on mount and after provider switches
+  async function refreshQuota() {
+    const q = await getStorageQuota();
+    setQuota(q);
+  }
+
+  onMount(() => {
+    refreshQuota();
+  });
 
   function handleQualityChange(quality: VideoQuality) {
     settingsStore.updateSettings({ videoQuality: quality });
@@ -49,6 +61,7 @@ export default function Settings() {
       storageManager.setActiveProvider("opfs");
       // Reload entries to include any OPFS entries
       await diaryStore.loadEntries();
+      refreshQuota();
     } else {
       // Switching to ephemeral
       settingsStore.updateSettings({ activeStorageProvider: "ephemeral" });
@@ -118,6 +131,49 @@ export default function Settings() {
             <div class="p-3 rounded-md border border-accent-red/30 bg-accent-red/5 text-xs font-mono text-accent-red/80">
               {switchWarning()}
             </div>
+          </Show>
+
+          {/* Storage quota display */}
+          <Show when={quota()}>
+            {(q) => {
+              const pct = q().usagePercent;
+              const barColor =
+                pct >= 90
+                  ? "bg-accent-red"
+                  : pct >= 75
+                    ? "bg-accent-amber"
+                    : "bg-accent-cyan";
+              return (
+                <div class="flex flex-col gap-2 p-3 rounded-md border border-border-default bg-bg-elevated">
+                  <div class="flex items-center justify-between text-xs font-mono text-text-secondary">
+                    <span>Storage Used</span>
+                    <span>
+                      {formatStorageSize(q().usageBytes)} / {formatStorageSize(q().quotaBytes)}
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div class="w-full h-1.5 bg-bg-primary rounded-full overflow-hidden">
+                    <div
+                      class={`h-full rounded-full transition-all ${barColor}`}
+                      style={{ width: `${Math.min(pct, 100)}%` }}
+                    />
+                  </div>
+                  <div class="flex items-center justify-between text-xs font-mono">
+                    <span class={pct >= 90 ? "text-accent-red" : "text-text-secondary/60"}>
+                      {pct.toFixed(1)}% used
+                    </span>
+                    <span class={`text-xs ${q().persisted ? "text-accent-green/70" : "text-accent-amber/70"}`}>
+                      {q().persisted ? "Persistent" : "Not persistent (browser may evict)"}
+                    </span>
+                  </div>
+                  <Show when={pct >= 80}>
+                    <div class="p-2 rounded border border-accent-amber/30 bg-accent-amber/5 text-xs font-mono text-accent-amber/80">
+                      Storage is running low. Consider downloading or deleting older recordings to free up space.
+                    </div>
+                  </Show>
+                </div>
+              );
+            }}
           </Show>
         </div>
       </section>
@@ -214,7 +270,7 @@ export default function Settings() {
           <div class="flex flex-col">
             <span class="text-sm text-text-primary">Google Drive</span>
             <span class="text-xs text-text-secondary font-mono">
-              Coming in Phase 5
+              Coming in Phase 6
             </span>
           </div>
           <button

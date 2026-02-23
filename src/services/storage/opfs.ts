@@ -68,6 +68,19 @@ export class OPFSStorage implements IStorageProvider {
     this.videosDir = await this.root.getDirectoryHandle("videos", {
       create: true,
     });
+
+    // Request persistent storage so the browser won't evict OPFS data
+    // under storage pressure. Fails silently if user denies or API unavailable.
+    try {
+      if (navigator.storage?.persist) {
+        const persisted = await navigator.storage.persist();
+        if (!persisted) {
+          console.warn("[OPFS] Persistent storage request denied by browser");
+        }
+      }
+    } catch {
+      // persist() not available — non-critical
+    }
   }
 
   private assertInitialized(): void {
@@ -219,4 +232,46 @@ export function isOPFSAvailable(): boolean {
     "storage" in navigator &&
     "getDirectory" in navigator.storage
   );
+}
+
+/** Storage quota information */
+export interface StorageQuota {
+  usageBytes: number;
+  quotaBytes: number;
+  usagePercent: number;
+  persisted: boolean;
+}
+
+/**
+ * Get current storage quota and usage.
+ * Returns null if the StorageManager API is unavailable.
+ */
+export async function getStorageQuota(): Promise<StorageQuota | null> {
+  try {
+    if (!navigator.storage?.estimate) return null;
+    const estimate = await navigator.storage.estimate();
+    const usage = estimate.usage ?? 0;
+    const quota = estimate.quota ?? 0;
+    const persisted = navigator.storage?.persisted
+      ? await navigator.storage.persisted()
+      : false;
+    return {
+      usageBytes: usage,
+      quotaBytes: quota,
+      usagePercent: quota > 0 ? (usage / quota) * 100 : 0,
+      persisted,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Format bytes into a human-readable string.
+ */
+export function formatStorageSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }

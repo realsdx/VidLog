@@ -15,6 +15,7 @@ import PreviewPlayer from "./PreviewPlayer";
 import TemplatePicker from "~/components/templates/TemplatePicker";
 import { toastStore } from "~/stores/toast";
 import { getCameraErrorMessage } from "~/utils/compat";
+import { getStorageQuota } from "~/services/storage/opfs";
 
 export default function VideoRecorder() {
   let canvasRef: HTMLCanvasElement | undefined;
@@ -160,6 +161,19 @@ export default function VideoRecorder() {
       toastStore.error("Failed to save entry. Please try again.");
       return;
     }
+
+    // Warn if storage is running low after save
+    try {
+      const quota = await getStorageQuota();
+      if (quota && quota.usagePercent >= 80) {
+        toastStore.warning(
+          `Storage is ${quota.usagePercent.toFixed(0)}% full. Consider downloading or deleting older recordings.`,
+        );
+      }
+    } catch {
+      // Non-critical — don't block the save flow
+    }
+
     handleDiscard();
   }
 
