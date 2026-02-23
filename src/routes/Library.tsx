@@ -19,10 +19,15 @@ export default function Library() {
     return result;
   };
 
-  function handleDelete(id: string) {
-    diaryStore.deleteEntry(id);
-    setSelectedEntry(null);
-    toastStore.success("Entry deleted");
+  async function handleDelete(id: string) {
+    try {
+      await diaryStore.deleteEntry(id);
+      setSelectedEntry(null);
+      toastStore.success("Entry deleted");
+    } catch (err) {
+      console.error("[Library] Failed to delete entry:", err);
+      toastStore.error("Failed to delete entry");
+    }
   }
 
   return (

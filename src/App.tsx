@@ -1,4 +1,4 @@
-import { createSignal, createResource, Show, Suspense } from "solid-js";
+import { createSignal, createResource, Show, Suspense, lazy } from "solid-js";
 import type { RouteSectionProps } from "@solidjs/router";
 import AppShell from "~/components/layout/AppShell";
 import AppErrorBoundary from "~/components/ui/ErrorBoundary";
@@ -6,7 +6,6 @@ import { onboardingStore } from "~/stores/onboarding";
 import { settingsStore } from "~/stores/settings";
 import { initializeApp, activateOPFS } from "~/services/init";
 import type { StorageProviderType } from "~/models/types";
-import { lazy } from "solid-js";
 
 const OnboardingWizard = lazy(
   () => import("~/components/onboarding/OnboardingWizard"),

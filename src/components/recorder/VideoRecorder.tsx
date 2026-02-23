@@ -37,6 +37,12 @@ export default function VideoRecorder() {
       recorderStore.setStatus("preparing");
       recorderStore.setError(null);
 
+      // M11: Destroy old engine before creating a new one on retry
+      if (engine) {
+        engine.destroy();
+        engine = null;
+      }
+
       const quality = VIDEO_QUALITY_MAP[settingsStore.getQuality()];
       const stream = await requestCamera(
         recorderStore.selectedDeviceId() ?? undefined,
@@ -68,7 +74,8 @@ export default function VideoRecorder() {
   }
 
   function handleStart() {
-    if (!engine) return;
+    // H4: Guard against double-click creating duplicate MediaRecorder
+    if (!engine || recorderStore.status() === "recording") return;
     engine.setTemplate(templateStore.activeTemplate());
 
     const title = settingsStore.settings().autoGenerateTitle
@@ -83,11 +90,13 @@ export default function VideoRecorder() {
 
   async function handleStop() {
     if (!engine) return;
-    recorderStore.setStatus("stopped");
-    const blob = await engine.stop();
+    // Capture elapsed BEFORE stopping (M1: stop() resets internal state)
     const duration = recorderStore.elapsed();
+    const blob = await engine.stop();
+    // Set signals BEFORE status change so UI has data when preview renders
     setRecordedBlob(blob);
     setRecordedDuration(duration);
+    recorderStore.setStatus("stopped");
   }
 
   function handlePause() {
@@ -133,7 +142,7 @@ export default function VideoRecorder() {
       templateId: templateStore.activeTemplate().id,
       storageProvider: settingsStore.settings().activeStorageProvider,
       videoBlob: blob,
-      videoBlobUrl: URL.createObjectURL(blob),
+      videoBlobUrl: null, // H6: Created lazily on-demand when entry is opened
       thumbnailDataUrl,
       cloudStatus: "none",
       cloudProvider: null,
@@ -142,8 +151,15 @@ export default function VideoRecorder() {
       cloudError: null,
     };
 
-    await diaryStore.addEntry(entry);
-    toastStore.success("Entry saved to library");
+    // M8: Wrap persistence in try/catch
+    try {
+      await diaryStore.addEntry(entry);
+      toastStore.success("Entry saved to library");
+    } catch (err) {
+      console.error("[VideoRecorder] Failed to save entry:", err);
+      toastStore.error("Failed to save entry. Please try again.");
+      return;
+    }
     handleDiscard();
   }
 

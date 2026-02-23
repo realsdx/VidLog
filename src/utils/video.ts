@@ -1,6 +1,7 @@
 /**
  * Generate a thumbnail data URL from a video blob.
  * Captures a frame at the specified time (default 1 second).
+ * Times out after 10 seconds to avoid hanging indefinitely.
  */
 export async function generateThumbnail(
   blob: Blob,
@@ -9,6 +10,12 @@ export async function generateThumbnail(
   height: number = 180,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
+    // M9: Timeout to prevent hanging if video never loads/seeks
+    const timeout = setTimeout(() => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Thumbnail generation timed out after 10s"));
+    }, 10_000);
+
     const video = document.createElement("video");
     video.muted = true;
     video.playsInline = true;
@@ -22,6 +29,7 @@ export async function generateThumbnail(
     });
 
     video.addEventListener("seeked", () => {
+      clearTimeout(timeout);
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
@@ -38,6 +46,7 @@ export async function generateThumbnail(
     });
 
     video.addEventListener("error", () => {
+      clearTimeout(timeout);
       URL.revokeObjectURL(url);
       reject(new Error("Failed to load video for thumbnail"));
     });

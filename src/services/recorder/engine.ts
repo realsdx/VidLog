@@ -31,6 +31,7 @@ export class RecordingEngine {
   private pausedElapsed: number = 0;
   private isPaused: boolean = false;
   private isRunning: boolean = false;
+  private maxDurationFired: boolean = false;
 
   constructor(config: RecordingEngineConfig) {
     this.config = config;
@@ -64,6 +65,9 @@ export class RecordingEngine {
 
   /** Start recording */
   start(): void {
+    // H4: Guard against duplicate MediaRecorder
+    if (this.mediaRecorder?.state === "recording") return;
+
     // Capture the canvas as a stream at 30fps
     const canvasStream = this.config.canvas.captureStream(30);
 
@@ -93,6 +97,7 @@ export class RecordingEngine {
     this.startTime = performance.now();
     this.pausedElapsed = 0;
     this.isPaused = false;
+    this.maxDurationFired = false;
   }
 
   /** Pause recording */
@@ -128,7 +133,16 @@ export class RecordingEngine {
         return;
       }
 
+      // H3: Timeout — resolve with whatever chunks we have if onstop never fires
+      const timeout = setTimeout(() => {
+        console.warn("[RecordingEngine] stop() timed out after 5s");
+        const blob = new Blob(this.chunks, { type: this.chunks[0]?.type || "video/webm" });
+        this.chunks = [];
+        resolve(blob);
+      }, 5000);
+
       this.mediaRecorder.onstop = () => {
+        clearTimeout(timeout);
         const blob = new Blob(this.chunks, { type: this.chunks[0]?.type || "video/webm" });
         this.chunks = [];
         resolve(blob);
@@ -140,6 +154,7 @@ export class RecordingEngine {
       ) {
         this.mediaRecorder.stop();
       } else {
+        clearTimeout(timeout);
         resolve(new Blob([], { type: "video/webm" }));
       }
     });
@@ -220,15 +235,17 @@ export class RecordingEngine {
       if (this.mediaRecorder?.state === "recording") {
         this.config.onElapsedUpdate(elapsed);
 
-        // Check max duration
-        if (elapsed >= this.config.maxDuration) {
+        // Check max duration (fire only once)
+        if (!this.maxDurationFired && elapsed >= this.config.maxDuration) {
+          this.maxDurationFired = true;
           this.config.onMaxDuration();
         }
       }
     } else if (this.mediaRecorder?.state === "recording") {
       const elapsed = this.getElapsed();
       this.config.onElapsedUpdate(elapsed);
-      if (elapsed >= this.config.maxDuration) {
+      if (!this.maxDurationFired && elapsed >= this.config.maxDuration) {
+        this.maxDurationFired = true;
         this.config.onMaxDuration();
       }
     }

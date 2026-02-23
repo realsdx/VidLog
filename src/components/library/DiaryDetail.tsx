@@ -51,6 +51,11 @@ export default function DiaryDetail(props: DiaryDetailProps) {
     // OPFS entries have videoBlob === null; lazy-load from OPFS
     if (provider === "opfs" && !blob) {
       setLoadingVideo(true);
+      // H2: Cancellation flag — if effect re-runs or component unmounts,
+      // stale async work won't update signals
+      let cancelled = false;
+      onCleanup(() => { cancelled = true; });
+
       // Async work in a non-returned IIFE — SolidJS won't see the Promise
       void (async () => {
         try {
@@ -59,7 +64,7 @@ export default function DiaryDetail(props: DiaryDetailProps) {
             | undefined;
           if (opfs && "loadVideoBlob" in opfs) {
             const loaded = await opfs.loadVideoBlob(id);
-            if (loaded) {
+            if (loaded && !cancelled) {
               const url = URL.createObjectURL(loaded);
               setVideoBlob(loaded);
               setVideoUrl(url);
@@ -68,7 +73,9 @@ export default function DiaryDetail(props: DiaryDetailProps) {
         } catch (err) {
           console.warn("[DiaryDetail] Failed to load video from OPFS:", err);
         }
-        setLoadingVideo(false);
+        if (!cancelled) {
+          setLoadingVideo(false);
+        }
       })();
     }
   });

@@ -217,8 +217,6 @@ function drawDataBars(
     const barWidth = maxBarWidth * (0.3 + 0.7 * ((phase + 1) / 2));
     const alpha = 0.2 + 0.3 * ((phase + 1) / 2);
 
-    ctx.fillStyle = color.replace(")", `, ${alpha})`).replace("rgb", "rgba");
-    // Since amber is hex, convert approach:
     ctx.fillStyle = `rgba(255, 165, 0, ${alpha})`;
     ctx.fillRect(x, startY + i * gap, barWidth, barHeight);
   }

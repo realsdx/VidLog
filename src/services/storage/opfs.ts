@@ -131,7 +131,7 @@ export class OPFSStorage implements IStorageProvider {
     this.assertInitialized();
     const entries: DiaryEntry[] = [];
 
-    for await (const [name, handle] of this.entriesDir! as any) {
+    for await (const [name, handle] of this.entriesDir!.entries()) {
       if (handle.kind !== "file" || !name.endsWith(".json")) continue;
       try {
         const file = await (handle as FileSystemFileHandle).getFile();
