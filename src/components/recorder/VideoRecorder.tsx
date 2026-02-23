@@ -105,6 +105,9 @@ export default function VideoRecorder() {
     setRecordedDuration(0);
     recorderStore.reset();
     recorderStore.setStatus("ready");
+
+    // Restart the canvas render loop so the live camera preview resumes
+    engine?.resumePreview();
   }
 
   async function handleSave(title: string, tags: string[]) {
@@ -179,7 +182,8 @@ export default function VideoRecorder() {
       </Show>
 
       {/* Recording / ready mode — show the canvas */}
-      <Show when={recorderStore.status() !== "stopped"}>
+      {/* Recording / ready mode — canvas is always mounted, hidden when in preview */}
+      <div class={recorderStore.status() === "stopped" ? "hidden" : ""}>
         {/* Canvas viewport */}
         <div class="relative w-full max-w-4xl rounded-lg overflow-hidden border border-border-default bg-black">
           <Show when={recorderStore.status() === "preparing"}>
@@ -203,7 +207,7 @@ export default function VideoRecorder() {
         </div>
 
         {/* Controls bar */}
-        <div class="flex flex-col-reverse sm:flex-row items-center justify-between w-full max-w-4xl gap-4 px-2">
+        <div class="flex flex-col-reverse sm:flex-row items-center justify-between w-full max-w-4xl gap-4 px-2 mt-4">
           {/* Template picker (only when not recording) */}
           <Show
             when={
@@ -222,7 +226,7 @@ export default function VideoRecorder() {
             onResume={handleResume}
           />
         </div>
-      </Show>
+      </div>
     </div>
   );
 }

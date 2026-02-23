@@ -115,6 +115,13 @@ export class RecordingEngine {
 
   /** Stop recording and return the final video blob */
   stop(): Promise<Blob> {
+    // Stop the render loop while in preview — no need to keep drawing
+    this.isRunning = false;
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = 0;
+    }
+
     return new Promise((resolve) => {
       if (!this.mediaRecorder) {
         resolve(new Blob([], { type: "video/webm" }));
@@ -136,6 +143,17 @@ export class RecordingEngine {
         resolve(new Blob([], { type: "video/webm" }));
       }
     });
+  }
+
+  /** Resume the canvas preview render loop (after stop/discard, before next recording) */
+  resumePreview(): void {
+    if (this.isRunning) return; // Already running
+    this.mediaRecorder = null;
+    this.startTime = 0;
+    this.pausedElapsed = 0;
+    this.isPaused = false;
+    this.isRunning = true;
+    this.renderLoop();
   }
 
   /** Destroy the engine, stop everything, free resources */

@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import Button from "~/components/ui/Button";
 import { formatDuration } from "~/utils/time";
 import { formatBlobSize, downloadBlob } from "~/utils/video";
@@ -16,7 +16,9 @@ export default function PreviewPlayer(props: PreviewPlayerProps) {
   const [tagsInput, setTagsInput] = createSignal("");
   let videoRef: HTMLVideoElement | undefined;
 
-  const blobUrl = () => URL.createObjectURL(props.blob);
+  // Create blob URL once, revoke on cleanup to prevent memory leak
+  const blobUrl = URL.createObjectURL(props.blob);
+  onCleanup(() => URL.revokeObjectURL(blobUrl));
 
   function handleDownload() {
     const name = title() || "recording";
@@ -39,7 +41,7 @@ export default function PreviewPlayer(props: PreviewPlayerProps) {
       <div class="relative rounded-lg overflow-hidden border border-border-default bg-black">
         <video
           ref={videoRef}
-          src={blobUrl()}
+          src={blobUrl}
           controls
           aria-label="Recording preview"
           class="w-full max-h-[60vh] object-contain"
