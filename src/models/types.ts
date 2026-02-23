@@ -79,6 +79,10 @@ export interface TemplateFrame {
   elapsed: number;
   isRecording: boolean;
   title: string;
+  /** Normalized 0-1 RMS audio level from the microphone */
+  audioLevel: number;
+  /** Raw frequency bins from AnalyserNode (null when no audio track available) */
+  audioFrequencyData: Uint8Array | null;
 }
 
 /** Configuration for a template's visual style */

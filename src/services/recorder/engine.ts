@@ -33,6 +33,12 @@ export class RecordingEngine {
   private isRunning: boolean = false;
   private maxDurationFired: boolean = false;
 
+  // Audio analysis for template visualizations
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private audioFrequencyData: Uint8Array<ArrayBuffer> | null = null;
+  private audioLevel: number = 0;
+
   constructor(config: RecordingEngineConfig) {
     this.config = config;
 
@@ -57,6 +63,24 @@ export class RecordingEngine {
     if (vw && vh) {
       this.config.canvas.width = vw;
       this.config.canvas.height = vh;
+    }
+
+    // Set up audio analysis if the stream has audio tracks
+    const audioTracks = this.config.stream.getAudioTracks();
+    if (audioTracks.length > 0) {
+      try {
+        this.audioContext = new AudioContext();
+        const source = this.audioContext.createMediaStreamSource(this.config.stream);
+        this.analyser = this.audioContext.createAnalyser();
+        this.analyser.fftSize = 256; // 128 frequency bins — cheap and sufficient
+        this.analyser.smoothingTimeConstant = 0.6;
+        source.connect(this.analyser);
+        // Do NOT connect analyser to destination — we don't want to play audio through speakers
+        this.audioFrequencyData = new Uint8Array(this.analyser.frequencyBinCount);
+      } catch (e) {
+        console.warn("[RecordingEngine] Failed to set up audio analysis:", e);
+        // Non-fatal — templates will just get audioLevel=0 and null frequency data
+      }
     }
 
     this.isRunning = true;
@@ -189,6 +213,15 @@ export class RecordingEngine {
     this.chunks = [];
     this.videoEl.pause();
     this.videoEl.srcObject = null;
+
+    // Clean up audio analysis resources
+    if (this.audioContext) {
+      void this.audioContext.close().catch(() => {});
+      this.audioContext = null;
+    }
+    this.analyser = null;
+    this.audioFrequencyData = null;
+    this.audioLevel = 0;
   }
 
   /** Update the template (e.g. user switches template mid-preview) */
@@ -215,6 +248,9 @@ export class RecordingEngine {
     const { canvas } = this.config;
     const ctx = this.ctx;
 
+    // Sample audio data for template visualizations
+    this.sampleAudio();
+
     // Draw the webcam frame
     ctx.drawImage(this.videoEl, 0, 0, canvas.width, canvas.height);
 
@@ -228,6 +264,8 @@ export class RecordingEngine {
         elapsed,
         isRecording: this.mediaRecorder?.state === "recording",
         title: this.config.title,
+        audioLevel: this.audioLevel,
+        audioFrequencyData: this.audioFrequencyData,
       };
       this.config.template.render(ctx, frame);
 
@@ -252,6 +290,25 @@ export class RecordingEngine {
 
     this.animFrameId = requestAnimationFrame(this.renderLoop);
   };
+
+  /** Sample audio frequency data and compute RMS level (called every frame) */
+  private sampleAudio(): void {
+    if (!this.analyser || !this.audioFrequencyData) {
+      this.audioLevel = 0;
+      return;
+    }
+
+    this.analyser.getByteFrequencyData(this.audioFrequencyData);
+
+    // Compute RMS from frequency bins → normalize to 0-1
+    let sum = 0;
+    const data = this.audioFrequencyData;
+    for (let i = 0; i < data.length; i++) {
+      const normalized = data[i] / 255;
+      sum += normalized * normalized;
+    }
+    this.audioLevel = Math.sqrt(sum / data.length);
+  }
 
   /** Find the best supported WebM mime type */
   private getSupportedMimeType(): string {
