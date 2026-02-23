@@ -10,15 +10,20 @@ export const diaryStore = {
   activeEntry,
   setActiveEntry,
 
-  /** Add a new entry and persist it */
+  /** Add a new entry — writes to the active storage provider */
   async addEntry(entry: DiaryEntry): Promise<void> {
-    await storageManager.getProvider().save(entry);
+    await storageManager.getActiveProvider().save(entry);
     setEntries((prev) => [entry, ...prev]);
   },
 
-  /** Update an existing entry */
+  /** Update an existing entry — routes to the entry's own provider */
   async updateEntry(id: string, updates: Partial<DiaryEntry>): Promise<void> {
-    await storageManager.getProvider().update(id, updates);
+    const entry = entries().find((e) => e.id === id);
+    if (!entry) return;
+
+    const provider = storageManager.getProviderForEntry(entry);
+    await provider.update(id, updates);
+
     setEntries((prev) =>
       prev.map((e) => (e.id === id ? { ...e, ...updates } : e)),
     );
@@ -29,22 +34,25 @@ export const diaryStore = {
     }
   },
 
-  /** Delete an entry */
+  /** Delete an entry — routes to the entry's own provider */
   async deleteEntry(id: string): Promise<void> {
     const entry = entries().find((e) => e.id === id);
     if (entry?.videoBlobUrl) {
       URL.revokeObjectURL(entry.videoBlobUrl);
     }
-    await storageManager.getProvider().delete(id);
+    if (entry) {
+      const provider = storageManager.getProviderForEntry(entry);
+      await provider.delete(id);
+    }
     setEntries((prev) => prev.filter((e) => e.id !== id));
     if (activeEntry()?.id === id) {
       setActiveEntry(null);
     }
   },
 
-  /** Load all entries from storage */
+  /** Load all entries from ALL registered storage providers (merged view) */
   async loadEntries(): Promise<void> {
-    const all = await storageManager.getProvider().getAll();
+    const all = await storageManager.getAllEntries();
     setEntries(all);
   },
 

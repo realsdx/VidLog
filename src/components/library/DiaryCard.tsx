@@ -10,7 +10,7 @@ interface DiaryCardProps {
 export default function DiaryCard(props: DiaryCardProps) {
   return (
     <button
-      class="flex flex-col rounded-lg border border-border-default bg-bg-secondary hover:border-accent-cyan/40 hover:bg-bg-elevated transition-all duration-150 overflow-hidden cursor-pointer text-left w-full"
+      class="flex flex-col rounded-lg border border-border-default bg-bg-secondary hover:border-accent-cyan/40 hover:bg-bg-elevated hover:shadow-[0_0_16px_-4px_rgba(0,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden cursor-pointer text-left w-full"
       onClick={props.onClick}
     >
       {/* Thumbnail */}
@@ -52,26 +52,34 @@ export default function DiaryCard(props: DiaryCardProps) {
           </div>
         </Show>
 
-        {/* Cloud status */}
-        <div class="flex items-center gap-1 mt-1">
-          <Show when={props.entry.cloudStatus === "uploaded"}>
-            <span class="text-[10px] font-mono text-accent-green">
-              Uploaded
+        {/* Storage & cloud status */}
+        <div class="flex items-center gap-2 mt-1">
+          {/* Storage location badge */}
+          <Show when={props.entry.storageProvider === "opfs"}>
+            <span class="text-[10px] font-mono text-accent-cyan/60 border border-accent-cyan/20 rounded px-1 py-px">
+              Local
             </span>
           </Show>
-          <Show when={props.entry.cloudStatus === "none"}>
-            <span class="text-[10px] font-mono text-text-secondary/50">
-              Local only
+          <Show when={props.entry.storageProvider === "ephemeral"}>
+            <span class="text-[10px] font-mono text-text-secondary/50 border border-border-default rounded px-1 py-px">
+              In Memory
+            </span>
+          </Show>
+
+          {/* Cloud status */}
+          <Show when={props.entry.cloudStatus === "uploaded"}>
+            <span class="text-[10px] font-mono text-accent-green">
+              Synced
             </span>
           </Show>
           <Show when={props.entry.cloudStatus === "uploading"}>
             <span class="text-[10px] font-mono text-accent-amber animate-pulse">
-              Uploading...
+              Syncing...
             </span>
           </Show>
           <Show when={props.entry.cloudStatus === "error"}>
             <span class="text-[10px] font-mono text-accent-red">
-              Upload failed
+              Sync failed
             </span>
           </Show>
         </div>

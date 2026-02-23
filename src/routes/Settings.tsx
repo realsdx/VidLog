@@ -1,10 +1,17 @@
+import { createSignal, Show } from "solid-js";
 import { settingsStore } from "~/stores/settings";
 import { templateStore } from "~/stores/template";
-import type { VideoQuality } from "~/models/types";
+import { diaryStore } from "~/stores/diary";
+import { storageManager } from "~/services/storage/manager";
+import { activateOPFS } from "~/services/init";
+import { isOPFSAvailable } from "~/services/storage/opfs";
+import type { VideoQuality, StorageProviderType } from "~/models/types";
 
 export default function Settings() {
   const settings = settingsStore.settings;
   const templates = templateStore.getTemplates();
+  const [switchWarning, setSwitchWarning] = createSignal<string | null>(null);
+  const [switching, setSwitching] = createSignal(false);
 
   function handleQualityChange(quality: VideoQuality) {
     settingsStore.updateSettings({ videoQuality: quality });
@@ -23,11 +30,97 @@ export default function Settings() {
     settingsStore.updateSettings({ autoGenerateTitle: enabled });
   }
 
+  async function handleStorageChange(provider: StorageProviderType) {
+    if (provider === settings().activeStorageProvider) return;
+
+    setSwitchWarning(null);
+    setSwitching(true);
+
+    if (provider === "opfs") {
+      const ok = await activateOPFS();
+      if (!ok) {
+        setSwitchWarning(
+          "Failed to initialize local storage (OPFS). Your browser may not support it.",
+        );
+        setSwitching(false);
+        return;
+      }
+      settingsStore.updateSettings({ activeStorageProvider: "opfs" });
+      storageManager.setActiveProvider("opfs");
+      // Reload entries to include any OPFS entries
+      await diaryStore.loadEntries();
+    } else {
+      // Switching to ephemeral
+      settingsStore.updateSettings({ activeStorageProvider: "ephemeral" });
+      storageManager.setActiveProvider("ephemeral");
+    }
+
+    setSwitching(false);
+  }
+
+  const opfsAvailable = isOPFSAvailable();
+
   return (
-    <div class="w-full max-w-2xl flex flex-col gap-8">
+    <div class="w-full max-w-2xl flex flex-col gap-8 animate-slide-up-in">
       <h1 class="text-xl font-display font-bold tracking-wider text-text-primary">
         SETTINGS
       </h1>
+
+      {/* Storage section */}
+      <section class="flex flex-col gap-4">
+        <h2 class="text-sm font-mono font-bold uppercase tracking-wider text-text-secondary border-b border-border-default pb-2">
+          Storage
+        </h2>
+
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div class="flex flex-col">
+              <label for="storage-provider" class="text-sm text-text-primary">
+                Active Storage Provider
+              </label>
+              <span id="storage-provider-desc" class="text-xs text-text-secondary font-mono">
+                Where new recordings are saved
+              </span>
+            </div>
+            <select
+              id="storage-provider"
+              aria-describedby="storage-provider-desc"
+              class="bg-bg-elevated border border-border-default rounded-md px-3 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60 focus:ring-2 focus:ring-accent-cyan/30"
+              value={settings().activeStorageProvider}
+              onChange={(e) =>
+                handleStorageChange(
+                  e.currentTarget.value as StorageProviderType,
+                )
+              }
+              disabled={switching()}
+            >
+              <option value="ephemeral">In-Memory (session only)</option>
+              <option value="opfs" disabled={!opfsAvailable}>
+                Local Storage (OPFS)
+                {!opfsAvailable ? " — not available" : ""}
+              </option>
+            </select>
+          </div>
+
+          {/* Warning when switching to ephemeral */}
+          <Show
+            when={settings().activeStorageProvider === "ephemeral"}
+          >
+            <div class="p-3 rounded-md border border-accent-amber/30 bg-accent-amber/5 text-xs font-mono text-accent-amber/80">
+              New recordings will only exist in memory and will be lost when you
+              close the tab. Your existing local recordings will still be
+              accessible in the library.
+            </div>
+          </Show>
+
+          {/* Error warning */}
+          <Show when={switchWarning()}>
+            <div class="p-3 rounded-md border border-accent-red/30 bg-accent-red/5 text-xs font-mono text-accent-red/80">
+              {switchWarning()}
+            </div>
+          </Show>
+        </div>
+      </section>
 
       {/* Recording section */}
       <section class="flex flex-col gap-4">
@@ -37,9 +130,10 @@ export default function Settings() {
 
         {/* Default template */}
         <div class="flex items-center justify-between">
-          <label class="text-sm text-text-primary">Default Template</label>
+          <label for="default-template" class="text-sm text-text-primary">Default Template</label>
           <select
-            class="bg-bg-elevated border border-border-default rounded-md px-3 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60"
+            id="default-template"
+            class="bg-bg-elevated border border-border-default rounded-md px-3 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60 focus:ring-2 focus:ring-accent-cyan/30"
             value={settings().defaultTemplateId}
             onChange={(e) => handleDefaultTemplate(e.currentTarget.value)}
           >
@@ -51,9 +145,10 @@ export default function Settings() {
 
         {/* Video quality */}
         <div class="flex items-center justify-between">
-          <label class="text-sm text-text-primary">Video Quality</label>
+          <label for="video-quality" class="text-sm text-text-primary">Video Quality</label>
           <select
-            class="bg-bg-elevated border border-border-default rounded-md px-3 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60"
+            id="video-quality"
+            class="bg-bg-elevated border border-border-default rounded-md px-3 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60 focus:ring-2 focus:ring-accent-cyan/30"
             value={settings().videoQuality}
             onChange={(e) =>
               handleQualityChange(e.currentTarget.value as VideoQuality)
@@ -67,9 +162,10 @@ export default function Settings() {
 
         {/* Max duration */}
         <div class="flex items-center justify-between">
-          <label class="text-sm text-text-primary">Max Duration</label>
+          <label for="max-duration" class="text-sm text-text-primary">Max Duration</label>
           <select
-            class="bg-bg-elevated border border-border-default rounded-md px-3 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60"
+            id="max-duration"
+            class="bg-bg-elevated border border-border-default rounded-md px-3 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60 focus:ring-2 focus:ring-accent-cyan/30"
             value={settings().maxDuration / 60}
             onChange={(e) =>
               handleMaxDuration(parseInt(e.currentTarget.value))
@@ -85,9 +181,12 @@ export default function Settings() {
 
         {/* Auto title */}
         <div class="flex items-center justify-between">
-          <label class="text-sm text-text-primary">Auto-generate Title</label>
+          <label id="auto-title-label" class="text-sm text-text-primary">Auto-generate Title</label>
           <button
-            class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+            role="switch"
+            aria-checked={settings().autoGenerateTitle}
+            aria-labelledby="auto-title-label"
+            class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 ${
               settings().autoGenerateTitle
                 ? "bg-accent-cyan/40"
                 : "bg-bg-elevated border border-border-default"

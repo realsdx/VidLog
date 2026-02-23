@@ -17,6 +17,9 @@ export type RecordingStatus =
 /** Video quality preset */
 export type VideoQuality = "low" | "medium" | "high";
 
+/** Storage provider type */
+export type StorageProviderType = "ephemeral" | "opfs";
+
 /** Video quality settings mapped from presets */
 export const VIDEO_QUALITY_MAP: Record<
   VideoQuality,
@@ -36,11 +39,31 @@ export interface DiaryEntry {
   tags: string[];
   templateId: string;
 
+  /** Which storage provider this entry lives in */
+  storageProvider: StorageProviderType;
+
   videoBlob: Blob | null;
   videoBlobUrl: string | null;
 
   thumbnailDataUrl: string | null;
 
+  cloudStatus: CloudStatus;
+  cloudProvider: string | null;
+  cloudFileId: string | null;
+  cloudUrl: string | null;
+  cloudError: string | null;
+}
+
+/** Serializable subset of DiaryEntry — stored as JSON in OPFS. Excludes Blob/URL fields. */
+export interface DiaryEntryMeta {
+  id: string;
+  title: string;
+  createdAt: number;
+  duration: number;
+  tags: string[];
+  templateId: string;
+  storageProvider: StorageProviderType;
+  thumbnailDataUrl: string | null;
   cloudStatus: CloudStatus;
   cloudProvider: string | null;
   cloudFileId: string | null;
@@ -98,4 +121,12 @@ export interface AppSettings {
   videoQuality: VideoQuality;
   maxDuration: number;
   autoGenerateTitle: boolean;
+  activeStorageProvider: StorageProviderType;
+}
+
+/** Onboarding state — persisted to localStorage */
+export interface OnboardingState {
+  completed: boolean;
+  storageChoice: StorageProviderType;
+  completedAt: number | null;
 }

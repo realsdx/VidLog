@@ -15,15 +15,15 @@ export default function RecordingControls(props: RecordingControlsProps) {
   const elapsed = recorderStore.elapsed;
 
   return (
-    <div class="flex items-center gap-4">
+    <div class="flex items-center gap-4" role="toolbar" aria-label="Recording controls">
       {/* Timer display */}
       <Show when={status() === "recording" || status() === "paused"}>
-        <div class="font-mono text-lg text-text-primary tabular-nums min-w-[80px]">
+        <div class="font-mono text-lg text-text-primary tabular-nums min-w-[80px]" role="timer" aria-label={`Elapsed time: ${formatDuration(elapsed())}`}>
           <Show when={status() === "recording"}>
-            <span class="inline-block w-2 h-2 rounded-full bg-accent-red animate-pulse-rec mr-2" />
+            <span class="inline-block w-2 h-2 rounded-full bg-accent-red animate-pulse-rec mr-2" aria-hidden="true" />
           </Show>
           <Show when={status() === "paused"}>
-            <span class="inline-block w-2 h-2 rounded-full bg-accent-amber mr-2" />
+            <span class="inline-block w-2 h-2 rounded-full bg-accent-amber mr-2" aria-hidden="true" />
           </Show>
           {formatDuration(elapsed())}
         </div>
@@ -65,7 +65,7 @@ export default function RecordingControls(props: RecordingControlsProps) {
 // Simple SVG icons
 function RecIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
       <circle cx="8" cy="8" r="6" />
     </svg>
   );
@@ -73,7 +73,7 @@ function RecIcon() {
 
 function StopIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
       <rect x="3" y="3" width="10" height="10" rx="1" />
     </svg>
   );
@@ -81,7 +81,7 @@ function StopIcon() {
 
 function PauseIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
       <rect x="3" y="2" width="4" height="12" rx="1" />
       <rect x="9" y="2" width="4" height="12" rx="1" />
     </svg>
@@ -90,7 +90,7 @@ function PauseIcon() {
 
 function ResumeIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
       <polygon points="3,2 14,8 3,14" />
     </svg>
   );

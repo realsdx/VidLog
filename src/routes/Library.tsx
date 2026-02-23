@@ -5,6 +5,7 @@ import type { DiaryEntry } from "~/models/types";
 import DiaryCard from "~/components/library/DiaryCard";
 import DiarySearch from "~/components/library/DiarySearch";
 import DiaryDetail from "~/components/library/DiaryDetail";
+import { toastStore } from "~/stores/toast";
 
 export default function Library() {
   const [searchQuery, setSearchQuery] = createSignal("");
@@ -21,10 +22,11 @@ export default function Library() {
   function handleDelete(id: string) {
     diaryStore.deleteEntry(id);
     setSelectedEntry(null);
+    toastStore.success("Entry deleted");
   }
 
   return (
-    <div class="w-full max-w-5xl flex flex-col gap-6">
+    <div class="w-full max-w-5xl flex flex-col gap-6 animate-slide-up-in">
       <h1 class="text-xl font-display font-bold tracking-wider text-text-primary">
         LIBRARY
       </h1>
@@ -65,7 +67,7 @@ export default function Library() {
         </div>
 
         <p class="text-xs font-mono text-text-secondary/50">
-          Showing {filteredEntries().length} of {diaryStore.entries().length} entries (current session)
+          Showing {filteredEntries().length} of {diaryStore.entries().length} entries
         </p>
       </Show>
 

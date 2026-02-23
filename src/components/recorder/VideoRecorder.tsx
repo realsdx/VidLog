@@ -13,6 +13,8 @@ import { generateThumbnail } from "~/utils/video";
 import RecordingControls from "./RecordingControls";
 import PreviewPlayer from "./PreviewPlayer";
 import TemplatePicker from "~/components/templates/TemplatePicker";
+import { toastStore } from "~/stores/toast";
+import { getCameraErrorMessage } from "~/utils/compat";
 
 export default function VideoRecorder() {
   let canvasRef: HTMLCanvasElement | undefined;
@@ -58,10 +60,10 @@ export default function VideoRecorder() {
 
       recorderStore.setStatus("ready");
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to access camera";
+      const msg = getCameraErrorMessage(err);
       recorderStore.setError(msg);
       recorderStore.setStatus("error");
+      toastStore.error(msg);
     }
   }
 
@@ -126,6 +128,7 @@ export default function VideoRecorder() {
       duration: recordedDuration(),
       tags,
       templateId: templateStore.activeTemplate().id,
+      storageProvider: settingsStore.settings().activeStorageProvider,
       videoBlob: blob,
       videoBlobUrl: URL.createObjectURL(blob),
       thumbnailDataUrl,
@@ -137,6 +140,7 @@ export default function VideoRecorder() {
     };
 
     await diaryStore.addEntry(entry);
+    toastStore.success("Entry saved to library");
     handleDiscard();
   }
 
@@ -199,7 +203,7 @@ export default function VideoRecorder() {
         </div>
 
         {/* Controls bar */}
-        <div class="flex items-center justify-between w-full max-w-4xl gap-4 px-2">
+        <div class="flex flex-col-reverse sm:flex-row items-center justify-between w-full max-w-4xl gap-4 px-2">
           {/* Template picker (only when not recording) */}
           <Show
             when={

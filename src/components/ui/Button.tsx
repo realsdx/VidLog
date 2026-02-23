@@ -35,7 +35,7 @@ export default function Button(props: ButtonProps) {
 
   return (
     <button
-      class={`inline-flex items-center justify-center gap-2 rounded-md font-medium transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${variantClasses[variant()]} ${sizeClasses[size()]} ${local.class ?? ""}`}
+      class={`inline-flex items-center justify-center gap-2 rounded-md font-medium transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 ${variantClasses[variant()]} ${sizeClasses[size()]} ${local.class ?? ""}`}
       {...rest}
     >
       {local.children}

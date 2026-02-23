@@ -4,6 +4,7 @@ import { Router, Route } from "@solidjs/router";
 import { lazy } from "solid-js";
 import App from "./App";
 import "./styles/app.css";
+import { diaryStore } from "./stores/diary";
 
 // Eager load the Record route (it's the default/home page)
 import Record from "./routes/Record";
@@ -25,3 +26,13 @@ render(
   ),
   root,
 );
+
+// Warn before closing tab if ephemeral entries exist (they'll be lost)
+window.addEventListener("beforeunload", (e) => {
+  const hasEphemeralEntries = diaryStore
+    .entries()
+    .some((entry) => entry.storageProvider === "ephemeral");
+  if (hasEphemeralEntries) {
+    e.preventDefault();
+  }
+});
