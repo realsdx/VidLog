@@ -256,10 +256,6 @@ export async function getStorageQuota(): Promise<StorageQuota | null> {
 
 /**
  * Format bytes into a human-readable string.
+ * @deprecated Use `formatBytes` from `~/utils/format` directly.
  */
-export function formatStorageSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
+export { formatBytes as formatStorageSize } from "~/utils/format";

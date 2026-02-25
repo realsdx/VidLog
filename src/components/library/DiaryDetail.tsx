@@ -1,9 +1,11 @@
 import { Show, createSignal, createEffect, onMount, onCleanup } from "solid-js";
 import type { DiaryEntry } from "~/models/types";
 import { formatDuration, formatDate, formatTime } from "~/utils/time";
-import { formatBlobSize, downloadBlob } from "~/utils/video";
+import { downloadBlob } from "~/utils/video";
+import { formatBytes } from "~/utils/format";
 import { storageManager } from "~/services/storage/manager";
 import Button from "~/components/ui/Button";
+import StorageBadge from "~/components/ui/StorageBadge";
 import { toastStore } from "~/stores/toast";
 
 interface DiaryDetailProps {
@@ -190,27 +192,13 @@ export default function DiaryDetail(props: DiaryDetailProps) {
             <span>{formatDate(props.entry.createdAt)} at {formatTime(props.entry.createdAt)}</span>
             <span>Duration: {formatDuration(props.entry.duration)}</span>
             <Show when={videoBlob()}>
-              <span>Size: {formatBlobSize(videoBlob()!.size)}</span>
+              <span>Size: {formatBytes(videoBlob()!.size)}</span>
             </Show>
           </div>
 
           {/* Storage badge */}
           <div class="flex items-center gap-2">
-            <Show when={props.entry.storageProvider === "opfs"}>
-              <span class="text-xs font-mono text-accent-cyan/60 border border-accent-cyan/20 rounded px-1.5 py-0.5">
-                Local (OPFS)
-              </span>
-            </Show>
-            <Show when={props.entry.storageProvider === "ephemeral"}>
-              <span class="text-xs font-mono text-text-secondary/50 border border-border-default rounded px-1.5 py-0.5">
-                In Memory
-              </span>
-            </Show>
-            <Show when={props.entry.storageProvider === "filesystem"}>
-              <span class="text-xs font-mono text-accent-cyan/60 border border-accent-cyan/20 rounded px-1.5 py-0.5">
-                Local (Filesystem)
-              </span>
-            </Show>
+            <StorageBadge provider={props.entry.storageProvider} />
           </div>
 
           <Show when={props.entry.tags.length > 0}>

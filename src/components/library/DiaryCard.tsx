@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import type { DiaryEntry } from "~/models/types";
 import { formatDuration, formatDate } from "~/utils/time";
+import StorageBadge from "~/components/ui/StorageBadge";
 
 interface DiaryCardProps {
   entry: DiaryEntry;
@@ -55,21 +56,7 @@ export default function DiaryCard(props: DiaryCardProps) {
         {/* Storage & cloud status */}
         <div class="flex items-center gap-2 mt-1">
           {/* Storage location badge */}
-          <Show when={props.entry.storageProvider === "opfs"}>
-            <span class="text-[10px] font-mono text-accent-cyan/60 border border-accent-cyan/20 rounded px-1 py-px">
-              Local
-            </span>
-          </Show>
-          <Show when={props.entry.storageProvider === "ephemeral"}>
-            <span class="text-[10px] font-mono text-text-secondary/50 border border-border-default rounded px-1 py-px">
-              In Memory
-            </span>
-          </Show>
-          <Show when={props.entry.storageProvider === "filesystem"}>
-            <span class="text-[10px] font-mono text-accent-cyan/60 border border-accent-cyan/20 rounded px-1 py-px">
-              Filesystem
-            </span>
-          </Show>
+          <StorageBadge provider={props.entry.storageProvider} compact />
 
           {/* Cloud status */}
           <Show when={props.entry.cloudStatus === "uploaded"}>

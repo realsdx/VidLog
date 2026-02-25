@@ -47,6 +47,7 @@ export async function initializeApp(): Promise<void> {
           `[init] Provider "${factory.name}" not available in this browser`,
         );
         settingsStore.updateSettings({ activeStorageProvider: "ephemeral" });
+        settingsStore.setStorageFallbackReason("unavailable");
       }
       continue;
     }
@@ -56,16 +57,20 @@ export async function initializeApp(): Promise<void> {
       if (provider) {
         storageManager.registerProvider(provider);
       } else if (factory.name === activeProvider) {
-        // Factory returned null (e.g. filesystem with no stored handle)
+        // Factory returned null (e.g. filesystem permission denied or no handle)
         console.warn(
           `[init] Provider "${factory.name}" could not be created`,
         );
         settingsStore.updateSettings({ activeStorageProvider: "ephemeral" });
+        settingsStore.setStorageFallbackReason(
+          factory.name === "filesystem" ? "permission-denied" : "init-failed",
+        );
       }
     } catch (err) {
       console.warn(`[init] Failed to create provider "${factory.name}":`, err);
       if (factory.name === activeProvider) {
         settingsStore.updateSettings({ activeStorageProvider: "ephemeral" });
+        settingsStore.setStorageFallbackReason("init-failed");
       }
     }
   }

@@ -55,13 +55,9 @@ export async function generateThumbnail(
 
 /**
  * Format a blob size to a human-readable string.
+ * @deprecated Use `formatBytes` from `~/utils/format` directly.
  */
-export function formatBlobSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
+export { formatBytes as formatBlobSize } from "~/utils/format";
 
 /**
  * Trigger a browser download for a blob.

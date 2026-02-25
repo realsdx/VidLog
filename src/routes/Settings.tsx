@@ -4,7 +4,8 @@ import { templateStore } from "~/stores/template";
 import { diaryStore } from "~/stores/diary";
 import { storageManager } from "~/services/storage/manager";
 import { activateOPFS, activateFilesystem } from "~/services/init";
-import { isOPFSAvailable, getStorageQuota, formatStorageSize } from "~/services/storage/opfs";
+import { isOPFSAvailable, getStorageQuota } from "~/services/storage/opfs";
+import { formatBytes } from "~/utils/format";
 import { isFilesystemAvailable, FilesystemStorage } from "~/services/storage/filesystem";
 import { clearDirectoryHandle } from "~/services/storage/handle-store";
 import type { StorageQuota } from "~/services/storage/opfs";
@@ -258,7 +259,7 @@ export default function Settings() {
                   <div class="flex items-center justify-between text-xs font-mono text-text-secondary">
                     <span>Storage Used</span>
                     <span>
-                      {formatStorageSize(q().usageBytes)} / {formatStorageSize(q().quotaBytes)}
+                      {formatBytes(q().usageBytes)} / {formatBytes(q().quotaBytes)}
                     </span>
                   </div>
                   {/* Progress bar */}

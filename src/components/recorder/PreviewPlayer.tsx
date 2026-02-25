@@ -1,7 +1,10 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, onCleanup, Show } from "solid-js";
 import Button from "~/components/ui/Button";
+import StorageBadge from "~/components/ui/StorageBadge";
 import { formatDuration } from "~/utils/time";
-import { formatBlobSize, downloadBlob } from "~/utils/video";
+import { downloadBlob } from "~/utils/video";
+import { formatBytes } from "~/utils/format";
+import { settingsStore } from "~/stores/settings";
 import { toastStore } from "~/stores/toast";
 
 interface PreviewPlayerProps {
@@ -51,7 +54,16 @@ export default function PreviewPlayer(props: PreviewPlayerProps) {
       {/* Metadata */}
       <div class="flex items-center gap-4 text-sm text-text-secondary font-mono">
         <span>Duration: {formatDuration(props.duration)}</span>
-        <span>Size: {formatBlobSize(props.blob.size)}</span>
+        <span>Size: {formatBytes(props.blob.size)}</span>
+      </div>
+
+      {/* Active storage destination */}
+      <div class="flex items-center gap-2 text-xs font-mono text-text-secondary">
+        <span>Saving to:</span>
+        <StorageBadge provider={settingsStore.settings().activeStorageProvider} />
+        <Show when={settingsStore.settings().activeStorageProvider === "ephemeral"}>
+          <span class="text-accent-amber/70">— lost on tab close</span>
+        </Show>
       </div>
 
       {/* Title input */}

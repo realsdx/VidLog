@@ -37,8 +37,23 @@ function persistSettings(settings: AppSettings): void {
 
 const [settings, setSettings] = createSignal<AppSettings>(loadSettings());
 
+/**
+ * Transient (non-persisted) signal that tracks why the active storage provider
+ * fell back to ephemeral during boot. Null when no fallback occurred.
+ *
+ * Possible reasons:
+ * - "permission-denied"  — filesystem handle exists but user denied re-auth
+ * - "unavailable"        — chosen provider's API is missing from this browser
+ * - "init-failed"        — provider creation/init threw an error
+ */
+const [storageFallbackReason, setStorageFallbackReason] = createSignal<
+  "permission-denied" | "unavailable" | "init-failed" | null
+>(null);
+
 export const settingsStore = {
   settings,
+  storageFallbackReason,
+  setStorageFallbackReason,
 
   updateSettings(updates: Partial<AppSettings>): void {
     setSettings((prev) => {

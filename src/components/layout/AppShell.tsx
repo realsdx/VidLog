@@ -3,6 +3,7 @@ import { Show } from "solid-js";
 import type { JSX } from "solid-js";
 import ToastContainer from "~/components/ui/Toast";
 import CompatBanner from "~/components/ui/CompatBanner";
+import StorageRecoveryBanner from "~/components/ui/StorageRecoveryBanner";
 import { canInstall, promptInstall } from "~/services/pwa";
 
 interface AppShellProps {
@@ -93,6 +94,9 @@ export default function AppShell(props: AppShellProps) {
 
       {/* Browser compatibility warnings */}
       <CompatBanner />
+
+      {/* Storage recovery banner (shown when filesystem fallback occurred) */}
+      <StorageRecoveryBanner />
 
       {/* Main content */}
       <main id="main-content" class="flex-1 flex flex-col items-center p-4 md:p-6 pb-20 md:pb-6">
