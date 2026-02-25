@@ -1,5 +1,6 @@
 import { settingsStore } from "~/stores/settings";
 import { diaryStore } from "~/stores/diary";
+import { toastStore } from "~/stores/toast";
 import { storageManager } from "~/services/storage/manager";
 import {
   ephemeralFactory,
@@ -9,6 +10,7 @@ import {
 } from "~/services/storage/registry";
 import { FilesystemStorage } from "~/services/storage/filesystem";
 import { storeDirectoryHandle } from "~/services/storage/handle-store";
+import type { ChangeSummary } from "~/services/storage/types";
 
 /**
  * All provider factories, explicitly imported.
@@ -82,6 +84,9 @@ export async function initializeApp(): Promise<void> {
     void diaryStore.loadEntries();
   });
 
+  // Start filesystem observer if the provider is registered
+  startFilesystemObserver();
+
   // Load entries from ALL registered providers
   await diaryStore.loadEntries();
 }
@@ -133,9 +138,61 @@ export async function activateFilesystem(
 
     storageManager.registerProvider(fs);
     storageManager.setActiveProvider("filesystem");
+
+    // Start observing for external changes on the new provider
+    startFilesystemObserver();
+
     return true;
   } catch (err) {
     console.warn("[init] Failed to activate filesystem:", err);
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Filesystem Observer — detect external file changes
+// ---------------------------------------------------------------------------
+
+/**
+ * If a FilesystemStorage provider is registered and supports observation,
+ * start watching for external changes and show a toast + reload on change.
+ *
+ * Safe to call multiple times — stops any existing observer first.
+ */
+function startFilesystemObserver(): void {
+  const provider = storageManager.getProvider("filesystem");
+  if (!provider || !provider.startObserving) return;
+
+  // Stop any previous observer (e.g. when switching folders)
+  provider.stopObserving?.();
+
+  provider.startObserving((summary: ChangeSummary) => {
+    // Reload the library from disk
+    void diaryStore.loadEntries();
+
+    // Build a human-readable toast message
+    const message = formatChangeSummary(summary);
+    if (message) {
+      toastStore.info(message, 4000);
+    }
+  });
+}
+
+/** Format a ChangeSummary into a concise toast message. */
+function formatChangeSummary(summary: ChangeSummary): string | null {
+  const parts: string[] = [];
+
+  if (summary.added > 0) {
+    parts.push(`${summary.added} ${summary.added === 1 ? "entry" : "entries"} added`);
+  }
+  if (summary.removed > 0) {
+    parts.push(`${summary.removed} ${summary.removed === 1 ? "entry" : "entries"} removed`);
+  }
+  if (summary.modified > 0 && summary.added === 0 && summary.removed === 0) {
+    // Only show "modified" if nothing was added/removed (otherwise it's noise)
+    parts.push(`${summary.modified === 1 ? "an entry" : "entries"} modified`);
+  }
+
+  if (parts.length === 0) return null;
+  return parts.join(", ") + " from folder";
 }

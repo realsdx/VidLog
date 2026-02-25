@@ -36,7 +36,7 @@ export default function DiaryDetail(props: DiaryDetailProps) {
     const blob = entry.videoBlob;
 
     // Cache the entry's own URL for safe comparison in onCleanup
-    entryOwnBlobUrl = blobUrl;
+    entryOwnBlobUrl = blobUrl ?? undefined;
 
     if (blobUrl) {
       // Already have a blob URL (ephemeral entries)

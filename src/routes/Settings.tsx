@@ -100,7 +100,7 @@ export default function Settings() {
       const handle = await window.showDirectoryPicker({
         id: "videodiary-vault",
         mode: "readwrite",
-        startIn: "documents",
+        startIn: "videos",
       });
 
       const ok = await activateFilesystem(handle);

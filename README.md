@@ -10,8 +10,8 @@ Inspired by the holographic interfaces from *Avatar* and the NASA HUD from *The 
 
 - **Record** webcam video with real-time sci-fi overlays composited directly into the output
 - **Choose templates** — Holographic (Avatar-style cyan panels) or Military HUD (Martian-style amber readouts)
-- **Persist locally** — recordings saved to your browser's Origin Private File System (OPFS), surviving page refreshes and browser restarts
-- **Browse & search** — library view with thumbnails, tags, date filters, and full video playback
+- **Persist locally** — three storage options: browser OPFS, a user-picked filesystem folder (syncs with Dropbox/backup tools), or ephemeral (in-memory)
+- **Browse & search** — unified library across all storage providers, with thumbnails, tags, date filters, and full video playback
 - **Install as PWA** — works offline, installable to home screen
 - **Download** any entry as a `.webm` file
 
@@ -28,7 +28,7 @@ No servers. No sign-ups. No tracking. Everything runs in your browser.
 | Routing | [@solidjs/router](https://github.com/solidjs/solid-router) |
 | PWA | [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) |
 | Video | Native MediaRecorder + Canvas 2D compositing |
-| Storage | OPFS (Origin Private File System) — purpose-built for large file I/O |
+| Storage | OPFS, File System Access API, or ephemeral (in-memory) |
 
 ## Prerequisites
 
@@ -92,7 +92,7 @@ Deploy the `dist/` directory to any static hosting:
   EXPOSE 80
   ```
 
-> **Important**: OPFS and service workers require HTTPS in production (localhost is exempt during development). Make sure your hosting serves over HTTPS.
+> **Important**: OPFS, the File System Access API, and service workers require HTTPS in production (localhost is exempt during development). Make sure your hosting serves over HTTPS.
 
 ## Architecture Overview
 
@@ -110,43 +110,33 @@ canvas.captureStream(30fps)      # Capture composited output
 MediaRecorder (WebM/VP9)         # Record to blob chunks
   |
   v
-OPFS / In-Memory                 # Persist locally
+OPFS / Filesystem / In-Memory     # Persist locally
 ```
 
 The overlays aren't CSS layers — they're baked into the video pixels via Canvas 2D compositing, so they appear in the downloaded file.
 
-## Project Structure
-
-```
-src/
-├── routes/                 # Page components (Record, Library, Settings)
-├── components/
-│   ├── recorder/           # VideoRecorder, RecordingControls, PreviewPlayer
-│   ├── library/            # DiaryGrid, DiaryCard, DiarySearch, DiaryDetail
-│   ├── templates/          # TemplatePicker, renderers (holographic, military-hud)
-│   ├── onboarding/         # First-run wizard
-│   ├── layout/             # AppShell, navigation
-│   └── ui/                 # Button, Toast, ErrorBoundary, CompatBanner
-├── services/
-│   ├── recorder/           # Recording engine, camera access
-│   └── storage/            # OPFS provider, ephemeral provider, storage manager
-├── stores/                 # SolidJS reactive state (diary, recorder, settings, etc.)
-├── utils/                  # Time formatting, video thumbnails, search, IDs
-└── styles/                 # Tailwind config + custom animations
-```
-
-See [`PLAN.md`](./PLAN.md) for the full architecture spec, data models, and phased roadmap.
 
 ## Storage Model
 
-VideoDiary is **local-first**. Recordings are stored in the browser's [Origin Private File System](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system) — a high-performance, origin-scoped filesystem designed for large files. This means:
+VideoDiary is **local-first**. All data stays on your device — you choose where during onboarding:
 
-- Your videos never leave your device unless you explicitly download them
-- Data persists across sessions (unlike IndexedDB, OPFS handles large files well)
-- `navigator.storage.persist()` is called to prevent browser eviction
-- Storage quota is visible in Settings with usage warnings at 80%
+| Provider | Persistence | Files visible in OS | Browser support |
+|----------|-------------|---------------------|-----------------|
+| **OPFS** (default) | Survives refresh & restart | No (origin-scoped) | Chrome, Edge, Firefox |
+| **Filesystem Folder** | User-picked OS folder | Yes — syncable via Dropbox, etc. | Chrome, Edge only |
+| **Ephemeral** | Tab lifetime only | No (in-memory) | All |
 
-An in-memory (ephemeral) mode is also available for quick tryouts — recordings exist only while the tab is open.
+Key details:
+
+- **Reads merge all providers** — entries from OPFS, filesystem, and ephemeral all appear in a single unified library
+- **Writes go to the active provider only** — set during onboarding or switched in Settings
+- **Lazy blob loading** — OPFS and filesystem providers return `videoBlob: null` from `getAll()`; video is loaded on-demand when the user opens an entry
+- **Cross-tab sync** — `BroadcastChannel` notifies other tabs on save/update/delete so the library stays in sync
+- **Filesystem folder** is persisted in IndexedDB via `FileSystemDirectoryHandle` so it reconnects automatically on next visit (re-prompts for permission if needed)
+- **Write ordering** — video blob is written first, metadata JSON last, preventing orphan metadata on partial failures
+- Storage quota is visible in Settings (OPFS) with usage warnings at 80%
+
+You can switch providers at any time in Settings. Existing entries remain accessible from their original provider.
 
 ## Roadmap
 
@@ -160,12 +150,12 @@ See the full roadmap in [`PLAN.md`](./PLAN.md).
 
 | Browser | Support |
 |---------|---------|
-| Chrome 90+ | Full |
-| Edge 90+ | Full |
-| Firefox | Partial (different codecs, no OPFS `entries()`) |
-| Safari | Limited (MediaRecorder quirks, OPFS limitations) |
+| Chrome 90+ | Full (all 3 storage providers) |
+| Edge 90+ | Full (all 3 storage providers) |
+| Firefox | Partial (OPFS + ephemeral only, different codecs, no File System Access API) |
+| Safari | Limited (MediaRecorder quirks, no filesystem provider, OPFS limitations) |
 
-**Chrome/Edge is the target.** The app shows a compatibility banner if required APIs are missing.
+**Chrome/Edge is the target.** Filesystem folder storage requires the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) (Chromium only). The app shows a compatibility banner if required APIs are missing.
 
 ## License
 

@@ -19,6 +19,13 @@ export interface StorageCapabilities {
   userVisibleFiles: boolean;
 }
 
+/** Summary of external changes detected by a filesystem observer. */
+export interface ChangeSummary {
+  added: number;
+  removed: number;
+  modified: number;
+}
+
 /**
  * Storage provider interface.
  * Implementations handle persisting diary entries and their video blobs.
@@ -47,6 +54,16 @@ export interface IStorageProvider {
 
   /** Scan for orphan files (video without metadata) and remove them. Optional. */
   cleanup?(): Promise<{ orphansRemoved: number }>;
+
+  /**
+   * Start observing the storage directory for external changes.
+   * Calls `onChange` with a summary when files are added/removed/modified outside the app.
+   * Only providers with userVisibleFiles capability should implement this.
+   */
+  startObserving?(onChange: (summary: ChangeSummary) => void): void;
+
+  /** Stop observing the storage directory for external changes. */
+  stopObserving?(): void;
 }
 
 /**

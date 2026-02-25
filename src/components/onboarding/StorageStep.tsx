@@ -26,7 +26,7 @@ export default function StorageStep(props: StorageStepProps) {
       const handle = await window.showDirectoryPicker({
         id: "videodiary-vault",
         mode: "readwrite",
-        startIn: "documents",
+        startIn: "videos",
       });
       setFsFolder(handle.name);
 
