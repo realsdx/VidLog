@@ -3,7 +3,6 @@ import type { DiaryEntry } from "~/models/types";
 import { formatDuration, formatDate, formatTime } from "~/utils/time";
 import { formatBlobSize, downloadBlob } from "~/utils/video";
 import { storageManager } from "~/services/storage/manager";
-import type { OPFSStorage } from "~/services/storage/opfs";
 import Button from "~/components/ui/Button";
 import { toastStore } from "~/stores/toast";
 
@@ -35,8 +34,6 @@ export default function DiaryDetail(props: DiaryDetailProps) {
     const entry = props.entry;
     const blobUrl = entry.videoBlobUrl;
     const blob = entry.videoBlob;
-    const provider = entry.storageProvider;
-    const id = entry.id;
 
     // Cache the entry's own URL for safe comparison in onCleanup
     entryOwnBlobUrl = blobUrl;
@@ -48,35 +45,33 @@ export default function DiaryDetail(props: DiaryDetailProps) {
       return;
     }
 
-    // OPFS entries have videoBlob === null; lazy-load from OPFS
-    if (provider === "opfs" && !blob) {
-      setLoadingVideo(true);
-      // H2: Cancellation flag — if effect re-runs or component unmounts,
-      // stale async work won't update signals
-      let cancelled = false;
-      onCleanup(() => { cancelled = true; });
+    // Lazy-load video blob for providers with lazy loading capability
+    if (!blob) {
+      const provider = storageManager.getProviderForEntry(entry);
+      if (provider.capabilities.lazyBlobs) {
+        setLoadingVideo(true);
+        // H2: Cancellation flag — if effect re-runs or component unmounts,
+        // stale async work won't update signals
+        let cancelled = false;
+        onCleanup(() => { cancelled = true; });
 
-      // Async work in a non-returned IIFE — SolidJS won't see the Promise
-      void (async () => {
-        try {
-          const opfs = storageManager.getProvider("opfs") as
-            | OPFSStorage
-            | undefined;
-          if (opfs && "loadVideoBlob" in opfs) {
-            const loaded = await opfs.loadVideoBlob(id);
+        // Async work in a non-returned IIFE — SolidJS won't see the Promise
+        void (async () => {
+          try {
+            const loaded = await storageManager.loadVideoBlob(entry);
             if (loaded && !cancelled) {
               const url = URL.createObjectURL(loaded);
               setVideoBlob(loaded);
               setVideoUrl(url);
             }
+          } catch (err) {
+            console.warn("[DiaryDetail] Failed to load video:", err);
           }
-        } catch (err) {
-          console.warn("[DiaryDetail] Failed to load video from OPFS:", err);
-        }
-        if (!cancelled) {
-          setLoadingVideo(false);
-        }
-      })();
+          if (!cancelled) {
+            setLoadingVideo(false);
+          }
+        })();
+      }
     }
   });
 
@@ -209,6 +204,11 @@ export default function DiaryDetail(props: DiaryDetailProps) {
             <Show when={props.entry.storageProvider === "ephemeral"}>
               <span class="text-xs font-mono text-text-secondary/50 border border-border-default rounded px-1.5 py-0.5">
                 In Memory
+              </span>
+            </Show>
+            <Show when={props.entry.storageProvider === "filesystem"}>
+              <span class="text-xs font-mono text-accent-cyan/60 border border-accent-cyan/20 rounded px-1.5 py-0.5">
+                Local (Filesystem)
               </span>
             </Show>
           </div>

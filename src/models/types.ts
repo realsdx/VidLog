@@ -18,7 +18,7 @@ export type RecordingStatus =
 export type VideoQuality = "low" | "medium" | "high";
 
 /** Storage provider type */
-export type StorageProviderType = "ephemeral" | "opfs";
+export type StorageProviderType = "ephemeral" | "opfs" | "filesystem";
 
 /** Video quality settings mapped from presets */
 export const VIDEO_QUALITY_MAP: Record<
@@ -35,6 +35,7 @@ export interface DiaryEntry {
   id: EntryId;
   title: string;
   createdAt: number;
+  updatedAt: number;
   duration: number;
   tags: string[];
   templateId: string;
@@ -59,6 +60,7 @@ export interface DiaryEntryMeta {
   id: string;
   title: string;
   createdAt: number;
+  updatedAt: number;
   duration: number;
   tags: string[];
   templateId: string;

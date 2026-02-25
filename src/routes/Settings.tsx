@@ -3,8 +3,10 @@ import { settingsStore } from "~/stores/settings";
 import { templateStore } from "~/stores/template";
 import { diaryStore } from "~/stores/diary";
 import { storageManager } from "~/services/storage/manager";
-import { activateOPFS } from "~/services/init";
+import { activateOPFS, activateFilesystem } from "~/services/init";
 import { isOPFSAvailable, getStorageQuota, formatStorageSize } from "~/services/storage/opfs";
+import { isFilesystemAvailable, FilesystemStorage } from "~/services/storage/filesystem";
+import { clearDirectoryHandle } from "~/services/storage/handle-store";
 import type { StorageQuota } from "~/services/storage/opfs";
 import type { VideoQuality, StorageProviderType } from "~/models/types";
 
@@ -14,6 +16,7 @@ export default function Settings() {
   const [switchWarning, setSwitchWarning] = createSignal<string | null>(null);
   const [switching, setSwitching] = createSignal(false);
   const [quota, setQuota] = createSignal<StorageQuota | null>(null);
+  const [fsFolderName, setFsFolderName] = createSignal<string | null>(null);
 
   // Load storage quota on mount and after provider switches
   async function refreshQuota() {
@@ -21,8 +24,19 @@ export default function Settings() {
     setQuota(q);
   }
 
+  // Detect current filesystem folder name from the registered provider
+  function refreshFsFolderName() {
+    const provider = storageManager.getProvider("filesystem");
+    if (provider && provider instanceof FilesystemStorage) {
+      setFsFolderName(provider.getRootHandle().name);
+    } else {
+      setFsFolderName(null);
+    }
+  }
+
   onMount(() => {
     refreshQuota();
+    refreshFsFolderName();
   });
 
   function handleQualityChange(quality: VideoQuality) {
@@ -59,9 +73,18 @@ export default function Settings() {
       }
       settingsStore.updateSettings({ activeStorageProvider: "opfs" });
       storageManager.setActiveProvider("opfs");
-      // Reload entries to include any OPFS entries
       await diaryStore.loadEntries();
       refreshQuota();
+    } else if (provider === "filesystem") {
+      // If filesystem is already registered (folder previously chosen), just switch
+      if (storageManager.getProvider("filesystem")) {
+        settingsStore.updateSettings({ activeStorageProvider: "filesystem" });
+        storageManager.setActiveProvider("filesystem");
+        await diaryStore.loadEntries();
+      } else {
+        // Need to pick a folder first
+        await handlePickFolder();
+      }
     } else {
       // Switching to ephemeral
       settingsStore.updateSettings({ activeStorageProvider: "ephemeral" });
@@ -71,7 +94,50 @@ export default function Settings() {
     setSwitching(false);
   }
 
+  async function handlePickFolder() {
+    setSwitchWarning(null);
+    try {
+      const handle = await window.showDirectoryPicker({
+        id: "videodiary-vault",
+        mode: "readwrite",
+        startIn: "documents",
+      });
+
+      const ok = await activateFilesystem(handle);
+      if (!ok) {
+        setSwitchWarning("Failed to initialize the selected folder.");
+        return;
+      }
+
+      settingsStore.updateSettings({ activeStorageProvider: "filesystem" });
+      setFsFolderName(handle.name);
+      await diaryStore.loadEntries();
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // User cancelled the picker — revert dropdown to current provider
+        return;
+      }
+      setSwitchWarning("Could not access the selected folder.");
+    }
+  }
+
+  async function handleChangeFolder() {
+    setSwitching(true);
+    await handlePickFolder();
+    setSwitching(false);
+  }
+
+  async function handleDisconnectFolder() {
+    setSwitchWarning(null);
+    await clearDirectoryHandle();
+    settingsStore.updateSettings({ activeStorageProvider: "ephemeral" });
+    storageManager.setActiveProvider("ephemeral");
+    setFsFolderName(null);
+    await diaryStore.loadEntries();
+  }
+
   const opfsAvailable = isOPFSAvailable();
+  const fsAvailable = isFilesystemAvailable();
 
   return (
     <div class="w-full max-w-2xl flex flex-col gap-8 animate-slide-up-in">
@@ -112,8 +178,52 @@ export default function Settings() {
                 Local Storage (OPFS)
                 {!opfsAvailable ? " — not available" : ""}
               </option>
+              <option value="filesystem" disabled={!fsAvailable}>
+                Filesystem Folder
+                {!fsAvailable ? " — not available" : ""}
+              </option>
             </select>
           </div>
+
+          {/* Filesystem folder info */}
+          <Show when={settings().activeStorageProvider === "filesystem" && fsFolderName()}>
+            <div class="flex items-center justify-between p-3 rounded-md border border-border-default bg-bg-elevated">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-xs font-mono text-text-secondary">Active Folder</span>
+                <span class="text-sm font-mono text-text-primary">{fsFolderName()}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  class="px-3 py-1.5 rounded-md text-xs font-mono border border-border-default text-text-secondary hover:text-text-primary hover:border-accent-cyan/40 transition-colors cursor-pointer"
+                  onClick={handleChangeFolder}
+                  disabled={switching()}
+                >
+                  Change Folder
+                </button>
+                <button
+                  class="px-3 py-1.5 rounded-md text-xs font-mono border border-accent-red/30 text-accent-red/70 hover:text-accent-red hover:border-accent-red/50 transition-colors cursor-pointer"
+                  onClick={handleDisconnectFolder}
+                  disabled={switching()}
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          </Show>
+
+          {/* Prompt to pick folder when filesystem is selected but no folder yet */}
+          <Show when={settings().activeStorageProvider === "filesystem" && !fsFolderName()}>
+            <div class="flex items-center justify-between p-3 rounded-md border border-accent-amber/30 bg-accent-amber/5">
+              <span class="text-xs font-mono text-accent-amber/80">No folder selected</span>
+              <button
+                class="px-3 py-1.5 rounded-md text-xs font-mono border border-accent-cyan/40 text-accent-cyan hover:bg-accent-cyan/10 transition-colors cursor-pointer"
+                onClick={handlePickFolder}
+                disabled={switching()}
+              >
+                Choose Folder
+              </button>
+            </div>
+          </Show>
 
           {/* Warning when switching to ephemeral */}
           <Show
@@ -270,7 +380,7 @@ export default function Settings() {
           <div class="flex flex-col">
             <span class="text-sm text-text-primary">Google Drive</span>
             <span class="text-xs text-text-secondary font-mono">
-              Coming in Phase 6
+              Coming in Phase 7
             </span>
           </div>
           <button

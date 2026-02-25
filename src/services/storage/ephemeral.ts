@@ -1,5 +1,5 @@
 import type { DiaryEntry } from "~/models/types";
-import type { IStorageProvider } from "./types";
+import type { IStorageProvider, StorageCapabilities } from "./types";
 
 /**
  * Ephemeral storage provider — stores entries in memory only.
@@ -7,6 +7,14 @@ import type { IStorageProvider } from "./types";
  */
 export class EphemeralStorage implements IStorageProvider {
   readonly name = "ephemeral";
+  readonly capabilities: StorageCapabilities = {
+    persistent: false,
+    lazyBlobs: false,
+    quota: false,
+    requiresPermission: false,
+    userVisibleFiles: false,
+  };
+
   private entries: Map<string, DiaryEntry> = new Map();
 
   async save(entry: DiaryEntry): Promise<void> {

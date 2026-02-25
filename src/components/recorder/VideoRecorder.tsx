@@ -7,7 +7,7 @@ import { requestCamera, stopStream } from "~/services/recorder/camera";
 import { RecordingEngine } from "~/services/recorder/engine";
 import { VIDEO_QUALITY_MAP } from "~/models/types";
 import type { DiaryEntry } from "~/models/types";
-import { generateId } from "~/utils/id";
+import { generateId, generateFilesystemId } from "~/utils/id";
 import { generateAutoTitle } from "~/utils/time";
 import { generateThumbnail } from "~/utils/video";
 import RecordingControls from "./RecordingControls";
@@ -134,14 +134,16 @@ export default function VideoRecorder() {
       // Thumbnail generation is optional
     }
 
+    const activeProvider = settingsStore.settings().activeStorageProvider;
     const entry: DiaryEntry = {
-      id: generateId(),
+      id: activeProvider === "filesystem" ? generateFilesystemId() : generateId(),
       title: autoTitle,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       duration: recordedDuration(),
       tags,
       templateId: templateStore.activeTemplate().id,
-      storageProvider: settingsStore.settings().activeStorageProvider,
+      storageProvider: activeProvider,
       videoBlob: blob,
       videoBlobUrl: null, // H6: Created lazily on-demand when entry is opened
       thumbnailDataUrl,

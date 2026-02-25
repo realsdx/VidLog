@@ -150,9 +150,9 @@ An in-memory (ephemeral) mode is also available for quick tryouts — recordings
 
 ## Roadmap
 
-- [x] **Phase 1-5**: Core recording, templates, storage, library, PWA, polish — all complete
-- [ ] **Phase 6**: Cloud sync (Google Drive) — optional backup, local stays primary
-- [ ] **Phase 7**: Streaming writes to OPFS, hybrid cloud eviction, FFmpeg.wasm, transcription, custom templates
+- [x] Core recording, templates, storage, library, PWA
+- [ ] Cloud sync (Google Drive) — optional backup, local stays primary
+- [ ] Streaming writes to OPFS, hybrid cloud eviction, FFmpeg.wasm, transcription, custom templates
 
 See the full roadmap in [`PLAN.md`](./PLAN.md).
 

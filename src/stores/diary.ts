@@ -12,7 +12,7 @@ export const diaryStore = {
 
   /** Add a new entry — writes to the active storage provider */
   async addEntry(entry: DiaryEntry): Promise<void> {
-    await storageManager.getActiveProvider().save(entry);
+    await storageManager.save(entry);
     setEntries((prev) => [entry, ...prev]);
   },
 
@@ -21,16 +21,16 @@ export const diaryStore = {
     const entry = entries().find((e) => e.id === id);
     if (!entry) return;
 
-    const provider = storageManager.getProviderForEntry(entry);
-    await provider.update(id, updates);
+    const withTimestamp = { ...updates, updatedAt: Date.now() };
+    await storageManager.update(entry, withTimestamp);
 
     setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+      prev.map((e) => (e.id === id ? { ...e, ...withTimestamp } : e)),
     );
     // Update active entry if it's the one being edited
     const active = activeEntry();
     if (active?.id === id) {
-      setActiveEntry({ ...active, ...updates });
+      setActiveEntry({ ...active, ...withTimestamp });
     }
   },
 
@@ -41,8 +41,7 @@ export const diaryStore = {
       URL.revokeObjectURL(entry.videoBlobUrl);
     }
     if (entry) {
-      const provider = storageManager.getProviderForEntry(entry);
-      await provider.delete(id);
+      await storageManager.deleteEntry(entry);
     }
     setEntries((prev) => prev.filter((e) => e.id !== id));
     if (activeEntry()?.id === id) {

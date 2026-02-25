@@ -65,6 +65,11 @@ export default function DiaryCard(props: DiaryCardProps) {
               In Memory
             </span>
           </Show>
+          <Show when={props.entry.storageProvider === "filesystem"}>
+            <span class="text-[10px] font-mono text-accent-cyan/60 border border-accent-cyan/20 rounded px-1 py-px">
+              Filesystem
+            </span>
+          </Show>
 
           {/* Cloud status */}
           <Show when={props.entry.cloudStatus === "uploaded"}>

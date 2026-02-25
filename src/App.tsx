@@ -39,6 +39,8 @@ export default function App(props: RouteSectionProps) {
         settingsStore.updateSettings({ activeStorageProvider: "ephemeral" });
       }
     }
+    // Filesystem is already activated by StorageStep (which calls activateFilesystem)
+    // before invoking onComplete — no extra work needed here.
 
     setOnboarded(true);
   }

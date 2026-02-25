@@ -1,39 +1,6 @@
-import type { DiaryEntry, DiaryEntryMeta } from "~/models/types";
-import type { IStorageProvider } from "./types";
-
-/**
- * Convert a DiaryEntry to its serializable metadata subset.
- * Strips Blob and object URL fields that can't be JSON-serialized.
- */
-function entryToMeta(entry: DiaryEntry): DiaryEntryMeta {
-  return {
-    id: entry.id,
-    title: entry.title,
-    createdAt: entry.createdAt,
-    duration: entry.duration,
-    tags: entry.tags,
-    templateId: entry.templateId,
-    storageProvider: entry.storageProvider,
-    thumbnailDataUrl: entry.thumbnailDataUrl,
-    cloudStatus: entry.cloudStatus,
-    cloudProvider: entry.cloudProvider,
-    cloudFileId: entry.cloudFileId,
-    cloudUrl: entry.cloudUrl,
-    cloudError: entry.cloudError,
-  };
-}
-
-/**
- * Reconstruct a DiaryEntry from stored metadata.
- * Video blob and blob URL are null — loaded lazily on demand.
- */
-function metaToEntry(meta: DiaryEntryMeta): DiaryEntry {
-  return {
-    ...meta,
-    videoBlob: null,
-    videoBlobUrl: null,
-  };
-}
+import type { DiaryEntry } from "~/models/types";
+import type { IStorageProvider, StorageCapabilities } from "./types";
+import { deserializeMeta, entryToMeta } from "./types";
 
 /**
  * OPFS Storage Provider — persists diary entries to the Origin Private File System.
@@ -51,6 +18,13 @@ function metaToEntry(meta: DiaryEntryMeta): DiaryEntry {
  */
 export class OPFSStorage implements IStorageProvider {
   readonly name = "opfs";
+  readonly capabilities: StorageCapabilities = {
+    persistent: true,
+    lazyBlobs: true,
+    quota: true,
+    requiresPermission: false,
+    userVisibleFiles: false,
+  };
 
   private root: FileSystemDirectoryHandle | null = null;
   private entriesDir: FileSystemDirectoryHandle | null = null;
@@ -133,8 +107,7 @@ export class OPFSStorage implements IStorageProvider {
       const metaFile = await this.entriesDir!.getFileHandle(`${id}.json`);
       const file = await metaFile.getFile();
       const text = await file.text();
-      const meta: DiaryEntryMeta = JSON.parse(text);
-      return metaToEntry(meta);
+      return deserializeMeta(JSON.parse(text));
     } catch {
       return null;
     }
@@ -149,8 +122,7 @@ export class OPFSStorage implements IStorageProvider {
       try {
         const file = await (handle as FileSystemFileHandle).getFile();
         const text = await file.text();
-        const meta: DiaryEntryMeta = JSON.parse(text);
-        entries.push(metaToEntry(meta));
+        entries.push(deserializeMeta(JSON.parse(text)));
       } catch {
         // Skip corrupt entries
         console.warn(`[OPFS] Skipping corrupt entry file: ${name}`);
@@ -219,6 +191,22 @@ export class OPFSStorage implements IStorageProvider {
       const videoFile = await this.videosDir!.getFileHandle(`${id}.webm`);
       const file = await videoFile.getFile();
       return file;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get storage quota info for OPFS.
+   */
+  async getQuota(): Promise<{ usageBytes: number; quotaBytes: number } | null> {
+    try {
+      if (!navigator.storage?.estimate) return null;
+      const estimate = await navigator.storage.estimate();
+      return {
+        usageBytes: estimate.usage ?? 0,
+        quotaBytes: estimate.quota ?? 0,
+      };
     } catch {
       return null;
     }
