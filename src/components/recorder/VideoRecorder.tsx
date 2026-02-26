@@ -5,7 +5,7 @@ import { diaryStore } from "~/stores/diary";
 import { settingsStore } from "~/stores/settings";
 import { requestCamera, stopStream } from "~/services/recorder/camera";
 import { RecordingEngine } from "~/services/recorder/engine";
-import { VIDEO_QUALITY_MAP } from "~/models/types";
+import { resolveRecordingParams } from "~/services/recorder/profiles";
 import type { DiaryEntry } from "~/models/types";
 import { generateId, generateFilesystemId } from "~/utils/id";
 import { generateAutoTitle } from "~/utils/time";
@@ -44,10 +44,13 @@ export default function VideoRecorder() {
         engine = null;
       }
 
-      const quality = VIDEO_QUALITY_MAP[settingsStore.getQuality()];
+      const params = resolveRecordingParams(
+        settingsStore.settings().recordingProfile,
+        settingsStore.getQuality(),
+      );
       const stream = await requestCamera(
         recorderStore.selectedDeviceId() ?? undefined,
-        { width: quality.width, height: quality.height },
+        { width: params.width, height: params.height },
       );
       recorderStore.setStream(stream);
 
@@ -57,7 +60,9 @@ export default function VideoRecorder() {
           stream,
           template: templateStore.activeTemplate(),
           title: "",
-          bitrate: quality.bitrate,
+          videoBitsPerSecond: params.videoBitsPerSecond,
+          audioBitsPerSecond: params.audioBitsPerSecond,
+          frameRate: params.frameRate,
           maxDuration: settingsStore.settings().maxDuration,
           onElapsedUpdate: (elapsed) => recorderStore.setElapsed(elapsed),
           onMaxDuration: () => handleStop(),

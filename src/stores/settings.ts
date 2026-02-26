@@ -6,6 +6,7 @@ const STORAGE_KEY = "videodiary_settings";
 const defaultSettings: AppSettings = {
   defaultTemplateId: "holographic",
   videoQuality: "medium",
+  recordingProfile: "standard",
   maxDuration: 1800, // 30 minutes
   autoGenerateTitle: true,
   activeStorageProvider: "ephemeral",

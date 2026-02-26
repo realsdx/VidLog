@@ -17,6 +17,9 @@ export type RecordingStatus =
 /** Video quality preset */
 export type VideoQuality = "low" | "medium" | "high";
 
+/** Recording profile — controls bitrate/fps/audio independently of resolution */
+export type RecordingProfile = "standard" | "efficient";
+
 /** Storage provider type */
 export type StorageProviderType = "ephemeral" | "opfs" | "filesystem";
 
@@ -125,6 +128,7 @@ export interface RecordingState {
 export interface AppSettings {
   defaultTemplateId: string;
   videoQuality: VideoQuality;
+  recordingProfile: RecordingProfile;
   maxDuration: number;
   autoGenerateTitle: boolean;
   activeStorageProvider: StorageProviderType;

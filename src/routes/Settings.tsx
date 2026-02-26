@@ -9,7 +9,8 @@ import { formatBytes } from "~/utils/format";
 import { isFilesystemAvailable, FilesystemStorage } from "~/services/storage/filesystem";
 import { clearDirectoryHandle } from "~/services/storage/handle-store";
 import type { StorageQuota } from "~/services/storage/opfs";
-import type { VideoQuality, StorageProviderType } from "~/models/types";
+import type { VideoQuality, StorageProviderType, RecordingProfile } from "~/models/types";
+import { RECORDING_PROFILES, resolveRecordingParams } from "~/services/recorder/profiles";
 
 export default function Settings() {
   const settings = settingsStore.settings;
@@ -42,6 +43,22 @@ export default function Settings() {
 
   function handleQualityChange(quality: VideoQuality) {
     settingsStore.updateSettings({ videoQuality: quality });
+  }
+
+  function handleProfileChange(profile: RecordingProfile) {
+    settingsStore.updateSettings({ recordingProfile: profile });
+  }
+
+  /** Estimate file size per minute based on current quality + profile */
+  function estimatedSizePerMinute(): string {
+    const params = resolveRecordingParams(
+      settings().recordingProfile,
+      settings().videoQuality,
+    );
+    // Total bits/sec = video + audio (default ~128kbps if undefined)
+    const audioBps = params.audioBitsPerSecond ?? 128_000;
+    const totalBytesPerMin = ((params.videoBitsPerSecond + audioBps) * 60) / 8;
+    return formatBytes(totalBytesPerMin);
   }
 
   function handleDefaultTemplate(templateId: string) {
@@ -325,6 +342,38 @@ export default function Settings() {
             <option value="medium">Medium (720p)</option>
             <option value="high">High (1080p)</option>
           </select>
+        </div>
+
+        {/* Recording profile */}
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <label for="recording-profile" class="text-sm text-text-primary">Recording Profile</label>
+            <span class="text-xs text-text-secondary font-mono">
+              {RECORDING_PROFILES[settings().recordingProfile].description}
+            </span>
+          </div>
+          <select
+            id="recording-profile"
+            class="bg-bg-elevated border border-border-default rounded-md px-3 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60 focus:ring-2 focus:ring-accent-cyan/30"
+            value={settings().recordingProfile}
+            onChange={(e) =>
+              handleProfileChange(e.currentTarget.value as RecordingProfile)
+            }
+          >
+            <option value="standard">{RECORDING_PROFILES.standard.label}</option>
+            <option value="efficient">{RECORDING_PROFILES.efficient.label}</option>
+          </select>
+        </div>
+
+        {/* Estimated file size */}
+        <div class="p-3 rounded-md border border-border-default bg-bg-elevated">
+          <div class="flex items-center justify-between text-xs font-mono text-text-secondary">
+            <span>Estimated max size</span>
+            <span class="text-text-primary">up to ~{estimatedSizePerMinute()} / min</span>
+          </div>
+          <p class="text-xs font-mono text-text-secondary/60 mt-1">
+            Actual size depends on content. Static scenes compress much smaller.
+          </p>
         </div>
 
         {/* Max duration */}

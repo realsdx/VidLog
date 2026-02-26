@@ -5,7 +5,9 @@ export interface RecordingEngineConfig {
   stream: MediaStream;
   template: DiaryTemplate | null;
   title: string;
-  bitrate: number;
+  videoBitsPerSecond: number;
+  audioBitsPerSecond: number | undefined;
+  frameRate: number;
   onElapsedUpdate: (elapsed: number) => void;
   onMaxDuration: () => void;
   maxDuration: number;
@@ -92,8 +94,8 @@ export class RecordingEngine {
     // H4: Guard against duplicate MediaRecorder
     if (this.mediaRecorder?.state === "recording") return;
 
-    // Capture the canvas as a stream at 30fps
-    const canvasStream = this.config.canvas.captureStream(30);
+    // Capture the canvas as a stream at the configured frame rate
+    const canvasStream = this.config.canvas.captureStream(this.config.frameRate);
 
     // Add audio tracks from the webcam stream
     const audioTracks = this.config.stream.getAudioTracks();
@@ -104,10 +106,15 @@ export class RecordingEngine {
     // Determine best supported mime type
     const mimeType = this.getSupportedMimeType();
 
-    this.mediaRecorder = new MediaRecorder(canvasStream, {
+    const recorderOptions: MediaRecorderOptions = {
       mimeType,
-      videoBitsPerSecond: this.config.bitrate,
-    });
+      videoBitsPerSecond: this.config.videoBitsPerSecond,
+    };
+    if (this.config.audioBitsPerSecond !== undefined) {
+      recorderOptions.audioBitsPerSecond = this.config.audioBitsPerSecond;
+    }
+
+    this.mediaRecorder = new MediaRecorder(canvasStream, recorderOptions);
 
     this.chunks = [];
     this.mediaRecorder.ondataavailable = (e) => {
