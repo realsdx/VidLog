@@ -57,7 +57,7 @@ export default function App(props: RouteSectionProps) {
       <Show
         when={initialized()}
         fallback={
-          <div class="min-h-screen flex items-center justify-center">
+          <div class="min-h-[100dvh] flex items-center justify-center">
             <p class="font-mono text-sm text-text-secondary animate-pulse">
               Initializing...
             </p>

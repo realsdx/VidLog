@@ -78,8 +78,15 @@ export default function DiaryDetail(props: DiaryDetailProps) {
   });
 
   // Focus management: auto-focus close button on mount
+  // Also lock body scroll to prevent background scrolling on mobile
   onMount(() => {
     closeBtnRef?.focus();
+    document.body.style.overflow = "hidden";
+  });
+
+  // Cleanup: restore body scroll when modal unmounts
+  onCleanup(() => {
+    document.body.style.overflow = "";
   });
 
   // Keyboard: Escape to close, trap focus within modal
@@ -142,7 +149,7 @@ export default function DiaryDetail(props: DiaryDetailProps) {
     >
       <div
         ref={dialogRef}
-        class="bg-bg-secondary border border-border-default rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto animate-scale-in"
+        class="bg-bg-secondary border border-border-default rounded-lg max-w-3xl w-full max-h-[90dvh] overflow-y-auto overscroll-contain animate-scale-in"
       >
         {/* Header */}
         <div class="flex items-center justify-between p-4 border-b border-border-default sticky top-0 bg-bg-secondary z-10">
@@ -151,7 +158,7 @@ export default function DiaryDetail(props: DiaryDetailProps) {
           </h2>
           <button
             ref={closeBtnRef}
-            class="text-text-secondary hover:text-text-primary transition-colors cursor-pointer p-2 -m-1 rounded-md hover:bg-bg-elevated focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 focus:ring-offset-1 focus:ring-offset-bg-secondary"
+            class="text-text-secondary hover:text-text-primary transition-colors cursor-pointer p-3 -m-2 rounded-md hover:bg-bg-elevated focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 focus:ring-offset-1 focus:ring-offset-bg-secondary"
             onClick={() => props.onClose()}
             type="button"
             aria-label="Close dialog"
@@ -180,7 +187,7 @@ export default function DiaryDetail(props: DiaryDetailProps) {
             <video
               src={videoUrl()!}
               controls
-              class="w-full max-h-[50vh] object-contain"
+              class="w-full max-h-[50dvh] object-contain"
               aria-label={`Video: ${props.entry.title}`}
             />
           </div>
@@ -204,7 +211,7 @@ export default function DiaryDetail(props: DiaryDetailProps) {
           <Show when={props.entry.tags.length > 0}>
             <div class="flex flex-wrap gap-1.5" role="list" aria-label="Tags">
               {props.entry.tags.map((tag) => (
-                <span role="listitem" class="px-2 py-0.5 rounded text-xs font-mono bg-accent-cyan/10 text-accent-cyan/70 border border-accent-cyan/20">
+                <span role="listitem" class="px-2 py-0.5 rounded text-xs font-mono bg-accent-cyan/10 text-accent-cyan/70 border border-accent-cyan/20 max-w-[200px] truncate">
                   {tag}
                 </span>
               ))}

@@ -48,7 +48,7 @@ export default function CompatBanner() {
             </Show>
           </div>
           <button
-            class="shrink-0 opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
+            class="shrink-0 p-2 -m-1 rounded-md opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
             onClick={() => setDismissed(true)}
             aria-label="Dismiss compatibility warning"
           >

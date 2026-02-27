@@ -236,7 +236,7 @@ export default function VideoRecorder() {
       {/* Recording / ready mode — canvas is always mounted, hidden when in preview */}
       <div class={recorderStore.status() === "stopped" ? "hidden" : ""}>
         {/* Canvas viewport */}
-        <div class="relative w-full max-w-4xl rounded-lg overflow-hidden border border-border-default bg-black">
+        <div class="relative w-full max-w-4xl rounded-lg overflow-hidden border border-border-default bg-black aspect-video">
           <Show when={recorderStore.status() === "preparing"}>
             <div class="absolute inset-0 flex items-center justify-center z-10">
               <p class="font-mono text-sm text-text-secondary animate-pulse">
@@ -252,8 +252,8 @@ export default function VideoRecorder() {
 
           <canvas
             ref={canvasRef}
-            class="w-full h-auto block"
-            style={{ "max-height": "calc(100vh - 220px)" }}
+            class="w-full h-auto block touch-manipulation"
+            style={{ "max-height": "calc(100dvh - 220px)" }}
           />
         </div>
 

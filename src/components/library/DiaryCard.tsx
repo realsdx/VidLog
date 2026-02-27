@@ -11,7 +11,7 @@ interface DiaryCardProps {
 export default function DiaryCard(props: DiaryCardProps) {
   return (
     <button
-      class="flex flex-col rounded-lg border border-border-default bg-bg-secondary hover:border-accent-cyan/40 hover:bg-bg-elevated hover:shadow-[0_0_16px_-4px_rgba(0,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-200 overflow-hidden cursor-pointer text-left w-full"
+      class="flex flex-col rounded-lg border border-border-default bg-bg-secondary active:bg-bg-elevated card-hover transition-all duration-200 overflow-hidden cursor-pointer text-left w-full"
       onClick={props.onClick}
     >
       {/* Thumbnail */}
@@ -46,7 +46,7 @@ export default function DiaryCard(props: DiaryCardProps) {
         <Show when={props.entry.tags.length > 0}>
           <div class="flex flex-wrap gap-1 mt-1">
             {props.entry.tags.map((tag) => (
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-accent-cyan/10 text-accent-cyan/70 border border-accent-cyan/20">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-accent-cyan/10 text-accent-cyan/70 border border-accent-cyan/20 max-w-[120px] truncate">
                 {tag}
               </span>
             ))}

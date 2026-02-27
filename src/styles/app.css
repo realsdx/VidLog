@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Suppress default tap highlight on mobile WebKit browsers */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
@@ -134,7 +139,27 @@
   animation: slide-up-in 0.3s ease-out;
 }
 
-/* Safe area padding for mobile bottom nav (notched phones) */
+/* Card hover lift — only on devices with a pointer (not touch) */
+@media (hover: hover) {
+  .card-hover:hover {
+    border-color: rgb(0 255 255 / 0.4);
+    background-color: var(--color-bg-elevated);
+    box-shadow: 0 0 16px -4px rgba(0, 255, 255, 0.2);
+    transform: translateY(-2px);
+  }
+}
+
+/* Safe area padding for notched/Dynamic Island phones.
+   Uses max() so existing padding (passed as the fallback) is never reduced. */
+.safe-area-top {
+  padding-top: max(var(--sa-top-min, 0px), env(safe-area-inset-top, 0px));
+}
+
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-x {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }

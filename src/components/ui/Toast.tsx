@@ -37,7 +37,7 @@ export default function ToastContainer() {
             </span>
             <span class="flex-1 text-xs leading-relaxed">{toast.message}</span>
             <button
-              class="shrink-0 opacity-50 hover:opacity-100 transition-opacity cursor-pointer text-current ml-1"
+              class="shrink-0 p-2 -m-1 opacity-50 hover:opacity-100 transition-opacity cursor-pointer text-current"
               onClick={() => toastStore.removeToast(toast.id)}
               aria-label="Dismiss notification"
             >

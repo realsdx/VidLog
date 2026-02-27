@@ -174,12 +174,12 @@ export default function Settings() {
         </h2>
 
         <div class="flex flex-col gap-3">
-          <div class="flex items-center justify-between">
-            <div class="flex flex-col">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-col min-w-0">
               <label for="storage-provider" class="text-sm text-text-primary">
                 Active Storage Provider
               </label>
-              <span id="storage-provider-desc" class="text-xs text-text-secondary font-mono">
+              <span id="storage-provider-desc" class="text-xs text-text-secondary font-mono truncate">
                 Where new recordings are saved
               </span>
             </div>
@@ -209,12 +209,12 @@ export default function Settings() {
 
           {/* Filesystem folder info */}
           <Show when={settings().activeStorageProvider === "filesystem" && fsFolderName()}>
-            <div class="flex items-center justify-between p-3 rounded-md border border-border-default bg-bg-elevated">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-md border border-border-default bg-bg-elevated">
               <div class="flex flex-col gap-0.5">
                 <span class="text-xs font-mono text-text-secondary">Active Folder</span>
                 <span class="text-sm font-mono text-text-primary">{fsFolderName()}</span>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <button
                   class="px-3 py-1.5 rounded-md text-xs font-mono border border-border-default text-text-secondary hover:text-text-primary hover:border-accent-cyan/40 transition-colors cursor-pointer"
                   onClick={handleChangeFolder}
@@ -317,7 +317,7 @@ export default function Settings() {
         </h2>
 
         {/* Default template */}
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label for="default-template" class="text-sm text-text-primary">Default Template</label>
           <select
             id="default-template"
@@ -332,7 +332,7 @@ export default function Settings() {
         </div>
 
         {/* Video quality */}
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label for="video-quality" class="text-sm text-text-primary">Video Quality</label>
           <select
             id="video-quality"
@@ -349,10 +349,10 @@ export default function Settings() {
         </div>
 
         {/* Recording format */}
-        <div class="flex items-center justify-between">
-          <div class="flex flex-col">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex flex-col min-w-0">
             <label for="recording-format" class="text-sm text-text-primary">Recording Format</label>
-            <span class="text-xs text-text-secondary font-mono">
+            <span class="text-xs text-text-secondary font-mono truncate">
               {settings().recordingFormat === "av1"
                 ? "Best compression, needs modern GPU"
                 : settings().recordingFormat === "h264"
@@ -375,10 +375,10 @@ export default function Settings() {
         </div>
 
         {/* Recording profile */}
-        <div class="flex items-center justify-between">
-          <div class="flex flex-col">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex flex-col min-w-0">
             <label for="recording-profile" class="text-sm text-text-primary">Recording Profile</label>
-            <span class="text-xs text-text-secondary font-mono">
+            <span class="text-xs text-text-secondary font-mono truncate">
               {RECORDING_PROFILES[settings().recordingProfile].description}
             </span>
           </div>
@@ -410,7 +410,7 @@ export default function Settings() {
         </div>
 
         {/* Max duration */}
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label for="max-duration" class="text-sm text-text-primary">Max Duration</label>
           <select
             id="max-duration"
@@ -429,7 +429,7 @@ export default function Settings() {
         </div>
 
         {/* Auto title */}
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label id="auto-title-label" class="text-sm text-text-primary">Auto-generate Title</label>
           <button
             role="switch"
@@ -460,7 +460,7 @@ export default function Settings() {
         </h2>
 
         <div class="flex items-center justify-between">
-          <div class="flex flex-col">
+          <div class="flex flex-col min-w-0">
             <span class="text-sm text-text-primary">Google Drive</span>
             <span class="text-xs text-text-secondary font-mono">
               Coming in Phase 7

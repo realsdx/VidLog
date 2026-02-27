@@ -15,7 +15,7 @@ export default function RecordingControls(props: RecordingControlsProps) {
   const elapsed = recorderStore.elapsed;
 
   return (
-    <div class="flex items-center gap-4" role="toolbar" aria-label="Recording controls">
+    <div class="flex items-center gap-4 flex-wrap" role="toolbar" aria-label="Recording controls">
       {/* Timer display */}
       <Show when={status() === "recording" || status() === "paused"}>
         <div class="font-mono text-lg text-text-primary tabular-nums min-w-[80px]" role="timer" aria-label={`Elapsed time: ${formatDuration(elapsed())}`}>

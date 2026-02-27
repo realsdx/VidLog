@@ -7,13 +7,13 @@ interface ButtonProps extends JSX.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<string, string> = {
   primary:
-    "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/40 hover:bg-accent-cyan/30 hover:border-accent-cyan/60",
+    "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/40 hover:bg-accent-cyan/30 hover:border-accent-cyan/60 active:bg-accent-cyan/35",
   secondary:
-    "bg-bg-elevated text-text-primary border border-border-default hover:bg-bg-elevated/80 hover:border-text-secondary/40",
+    "bg-bg-elevated text-text-primary border border-border-default hover:bg-bg-elevated/80 hover:border-text-secondary/40 active:bg-bg-elevated/70",
   danger:
-    "bg-accent-red/20 text-accent-red border border-accent-red/40 hover:bg-accent-red/30",
+    "bg-accent-red/20 text-accent-red border border-accent-red/40 hover:bg-accent-red/30 active:bg-accent-red/35",
   ghost:
-    "bg-transparent text-text-secondary border border-transparent hover:text-text-primary hover:bg-bg-elevated",
+    "bg-transparent text-text-secondary border border-transparent hover:text-text-primary hover:bg-bg-elevated active:bg-bg-elevated/80",
 };
 
 const sizeClasses: Record<string, string> = {

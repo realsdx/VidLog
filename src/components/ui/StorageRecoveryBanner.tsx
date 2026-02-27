@@ -93,7 +93,7 @@ export default function StorageRecoveryBanner() {
             </button>
           </Show>
           <button
-            class="p-1 rounded text-text-secondary/60 hover:text-text-primary transition-colors cursor-pointer"
+            class="p-2 -m-1 rounded text-text-secondary/60 hover:text-text-primary transition-colors cursor-pointer"
             onClick={handleDismiss}
             aria-label="Dismiss storage warning"
           >

@@ -36,13 +36,13 @@ export default function WelcomeStep(props: WelcomeStepProps) {
       {/* Actions */}
       <div class="flex items-center gap-4">
         <button
-          class="px-8 py-2.5 rounded-md bg-accent-cyan/15 border border-accent-cyan/40 text-accent-cyan font-mono text-sm font-medium hover:bg-accent-cyan/25 transition-colors cursor-pointer"
+          class="px-8 py-2.5 rounded-md bg-accent-cyan/15 border border-accent-cyan/40 text-accent-cyan font-mono text-sm font-medium hover:bg-accent-cyan/25 active:bg-accent-cyan/30 transition-colors cursor-pointer"
           onClick={props.onNext}
         >
           Next
         </button>
         <button
-          class="px-6 py-2.5 rounded-md text-text-secondary text-sm font-mono hover:text-text-primary transition-colors cursor-pointer"
+          class="px-6 py-2.5 rounded-md text-text-secondary text-sm font-mono hover:text-text-primary active:text-text-primary transition-colors cursor-pointer"
           onClick={props.onSkip}
         >
           Skip

@@ -35,7 +35,7 @@ export default function AppShell(props: AppShellProps) {
       </a>
 
       {/* Top navbar — hidden on mobile */}
-      <nav aria-label="Main navigation" class="hidden md:flex items-center justify-between px-6 py-3 border-b border-border-default bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-40">
+      <nav aria-label="Main navigation" class="hidden md:flex items-center justify-between px-6 py-3 border-b border-border-default bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-40 safe-area-x">
         {/* Logo */}
         <div class="flex items-center gap-2">
           <span class="font-display font-bold text-lg tracking-wider text-accent-cyan">
@@ -75,7 +75,7 @@ export default function AppShell(props: AppShellProps) {
       </nav>
 
       {/* Mobile top bar — only logo + install */}
-      <header class="flex md:hidden items-center justify-between px-4 py-2 border-b border-border-default bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-40">
+      <header class="flex md:hidden items-center justify-between px-4 pb-2 border-b border-border-default bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-40 safe-area-top safe-area-x" style={{ "--sa-top-min": "0.5rem" }}>
         <div class="flex items-center gap-2">
           <span class="font-display font-bold text-base tracking-wider text-accent-cyan">
             VIDEODIARY
@@ -99,12 +99,12 @@ export default function AppShell(props: AppShellProps) {
       <StorageRecoveryBanner />
 
       {/* Main content */}
-      <main id="main-content" class="flex-1 flex flex-col items-center p-4 md:p-6 pb-20 md:pb-6">
+      <main id="main-content" class="flex-1 flex flex-col items-center p-4 md:p-6 pb-20 md:pb-6 safe-area-x">
         {props.children}
       </main>
 
       {/* Bottom navigation — mobile only */}
-      <nav aria-label="Mobile navigation" class="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border-default bg-bg-secondary/95 backdrop-blur-sm safe-area-bottom">
+      <nav aria-label="Mobile navigation" class="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border-default bg-bg-secondary/95 backdrop-blur-sm safe-area-bottom safe-area-x">
         <div class="flex items-center justify-around py-1">
           {navItems.map((item) => (
             <A

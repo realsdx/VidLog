@@ -47,7 +47,7 @@ export default function PreviewPlayer(props: PreviewPlayerProps) {
           src={blobUrl}
           controls
           aria-label="Recording preview"
-          class="w-full max-h-[60vh] object-contain"
+          class="w-full max-h-[60dvh] object-contain"
         />
       </div>
 
@@ -97,7 +97,7 @@ export default function PreviewPlayer(props: PreviewPlayerProps) {
       </div>
 
       {/* Action buttons */}
-      <div class="flex items-center gap-3 pt-2">
+      <div class="flex flex-wrap items-center gap-3 pt-2">
         <Button variant="primary" onClick={handleSave}>
           Save to Library
         </Button>

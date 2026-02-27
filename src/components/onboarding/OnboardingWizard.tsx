@@ -18,7 +18,8 @@ export default function OnboardingWizard(props: OnboardingWizardProps) {
   }
 
   return (
-    <div class="min-h-screen bg-bg-primary flex items-center justify-center p-6">
+    <div class="min-h-[100dvh] bg-bg-primary flex flex-col items-center overflow-y-auto p-6">
+      <div class="flex-1" />
       <Show when={step() === "welcome"}>
         <WelcomeStep onNext={() => setStep("storage")} onSkip={handleSkip} />
       </Show>
@@ -29,6 +30,7 @@ export default function OnboardingWizard(props: OnboardingWizardProps) {
           onSkip={handleSkip}
         />
       </Show>
+      <div class="flex-1" />
     </div>
   );
 }
