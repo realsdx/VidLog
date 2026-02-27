@@ -24,7 +24,7 @@ class StorageManager {
 
     // Set up cross-tab sync via BroadcastChannel
     try {
-      this.channel = new BroadcastChannel("videodiary-sync");
+      this.channel = new BroadcastChannel("vidlog-sync");
       this.channel.onmessage = () => {
         this.onEntriesChanged?.();
       };

@@ -18,7 +18,7 @@ export default function StorageRecoveryBanner() {
     setReconnecting(true);
     try {
       const handle = await window.showDirectoryPicker({
-        id: "videodiary-vault",
+        id: "vidlog-vault",
         mode: "readwrite",
         startIn: "videos",
       });

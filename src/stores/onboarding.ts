@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js";
 import type { OnboardingState, StorageProviderType } from "~/models/types";
 
-const STORAGE_KEY = "videodiary_onboarding";
+const STORAGE_KEY = "vidlog_onboarding";
 
 const defaultState: OnboardingState = {
   completed: false,

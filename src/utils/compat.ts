@@ -1,4 +1,4 @@
-/** Browser capability checks for VideoDiary core features. */
+/** Browser capability checks for VidLog core features. */
 
 export interface CompatCheck {
   feature: string;

@@ -7,7 +7,7 @@ import { getExtensionForMimeType } from "~/utils/format";
  * OPFS Storage Provider — persists diary entries to the Origin Private File System.
  *
  * Directory layout:
- *   /videodiary/
+ *   /vidlog/
  *     entries/{id}.json          — serialized DiaryEntryMeta
  *     videos/{id}.{mp4|webm}    — video blob (extension derived from mimeType)
  *
@@ -34,7 +34,7 @@ export class OPFSStorage implements IStorageProvider {
   /** Initialize OPFS directory structure. Must be called before any other method. */
   async init(): Promise<void> {
     const opfsRoot = await navigator.storage.getDirectory();
-    this.root = await opfsRoot.getDirectoryHandle("videodiary", {
+    this.root = await opfsRoot.getDirectoryHandle("vidlog", {
       create: true,
     });
     this.entriesDir = await this.root.getDirectoryHandle("entries", {

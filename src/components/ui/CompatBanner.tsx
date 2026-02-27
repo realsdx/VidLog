@@ -42,7 +42,7 @@ export default function CompatBanner() {
             </For>
             <Show when={critical.length > 0}>
               <p class="mt-1 opacity-70">
-                VideoDiary requires a Chromium-based browser (Chrome, Edge) for
+                VidLog requires a Chromium-based browser (Chrome, Edge) for
                 full functionality.
               </p>
             </Show>

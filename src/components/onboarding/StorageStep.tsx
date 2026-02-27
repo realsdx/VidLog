@@ -24,7 +24,7 @@ export default function StorageStep(props: StorageStepProps) {
     setFsError(null);
     try {
       const handle = await window.showDirectoryPicker({
-        id: "videodiary-vault",
+        id: "vidlog-vault",
         mode: "readwrite",
         startIn: "videos",
       });

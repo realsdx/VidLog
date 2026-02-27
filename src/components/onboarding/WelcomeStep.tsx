@@ -10,7 +10,7 @@ export default function WelcomeStep(props: WelcomeStepProps) {
       <div class="flex flex-col items-center gap-3">
         <div class="px-6 py-3 border border-accent-cyan/40 rounded-sm bg-accent-cyan/5">
           <h1 class="font-display font-bold text-3xl tracking-[0.25em] text-accent-cyan">
-            VIDEODIARY
+            VIDLOG
           </h1>
         </div>
         <div class="h-px w-32 bg-gradient-to-r from-transparent via-accent-cyan/50 to-transparent" />

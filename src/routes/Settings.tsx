@@ -120,7 +120,7 @@ export default function Settings() {
     setSwitchWarning(null);
     try {
       const handle = await window.showDirectoryPicker({
-        id: "videodiary-vault",
+        id: "vidlog-vault",
         mode: "readwrite",
         startIn: "videos",
       });
@@ -481,7 +481,7 @@ export default function Settings() {
           About
         </h2>
         <div class="flex flex-col gap-1 text-xs font-mono text-text-secondary">
-          <span>VideoDiary v0.1.0</span>
+          <span>VidLog v0.1.0</span>
           <span>Built with SolidJS + Vite + Tailwind CSS</span>
           <span>Chrome/Edge recommended</span>
         </div>

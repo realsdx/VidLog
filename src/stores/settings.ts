@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js";
 import type { AppSettings, VideoQuality } from "~/models/types";
 
-const STORAGE_KEY = "videodiary_settings";
+const STORAGE_KEY = "vidlog_settings";
 
 const defaultSettings: AppSettings = {
   defaultTemplateId: "holographic",

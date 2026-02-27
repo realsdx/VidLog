@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "VideoDiary",
-        short_name: "VideoDiary",
+        name: "VidLog",
+        short_name: "VidLog",
         description: "Sci-fi themed video diary — record, persist, review.",
         start_url: "/",
         display: "standalone",

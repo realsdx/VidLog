@@ -1,4 +1,4 @@
-# VideoDiary
+# VidLog
 
 **Obsidian for Video Journals.** A local-first, sci-fi themed video diary PWA. Record webcam entries with cinematic HUD overlays baked into the video — no backend, no accounts, your data stays on your device.
 
@@ -40,8 +40,8 @@ No servers. No sign-ups. No tracking. Everything runs in your browser.
 
 ```bash
 # Clone the repo
-git clone https://github.com/<your-username>/VideoDiary.git
-cd VideoDiary
+git clone https://github.com/<your-username>/VidLog.git
+cd VidLog
 
 # Install dependencies
 npm install
@@ -63,7 +63,7 @@ Open `http://localhost:5173` in Chrome/Edge. Grant camera + microphone permissio
 
 ## Self-Hosting
 
-VideoDiary is a static site — the build output is plain HTML/CSS/JS with a service worker. No server-side runtime needed.
+VidLog is a static site — the build output is plain HTML/CSS/JS with a service worker. No server-side runtime needed.
 
 ```bash
 # Build for production
@@ -118,7 +118,7 @@ The overlays aren't CSS layers — they're baked into the video pixels via Canva
 
 ## Storage Model
 
-VideoDiary is **local-first**. All data stays on your device — you choose where during onboarding:
+VidLog is **local-first**. All data stays on your device — you choose where during onboarding:
 
 | Provider | Persistence | Files visible in OS | Browser support |
 |----------|-------------|---------------------|-----------------|

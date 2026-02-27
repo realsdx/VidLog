@@ -6,7 +6,7 @@
  * the folder after the initial grant.
  */
 
-const DB_NAME = "videodiary-handles";
+const DB_NAME = "vidlog-handles";
 const DB_VERSION = 1;
 const STORE_NAME = "directory-handles";
 const KEY = "filesystem-root";

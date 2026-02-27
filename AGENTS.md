@@ -1,4 +1,4 @@
-# AGENTS.md — VideoDiary
+# AGENTS.md — VidLog
 
 Local-first, sci-fi themed video diary PWA. Records webcam entries with cinematic HUD overlays baked into the video via Canvas 2D compositing. No backend, no accounts — all data stays on-device.
 
@@ -64,14 +64,14 @@ All providers implement `IStorageProvider` (`src/services/storage/types.ts`). Th
 | Provider | File | Persistence | Lazy Blobs | User-Visible Files |
 |----------|------|-------------|------------|---------------------|
 | `EphemeralStorage` | `src/services/storage/ephemeral.ts` | Session only (in-memory `Map`) | No | No |
-| `OPFSStorage` | `src/services/storage/opfs.ts` | OPFS `/videodiary/{entries,videos}/` | Yes | No |
+| `OPFSStorage` | `src/services/storage/opfs.ts` | OPFS `/vidlog/{entries,videos}/` | Yes | No |
 | `FilesystemStorage` | `src/services/storage/filesystem.ts` | User-picked OS folder | Yes | Yes |
 
 **Provider registration**: Factory pattern in `src/services/storage/registry.ts`. Each factory has `isAvailable()` and `create()`. `src/services/init.ts` iterates factories and registers available ones.
 
 **Write ordering rule**: Video blob first, metadata JSON last. This prevents orphan metadata if the write fails partway.
 
-**Cross-tab sync**: `BroadcastChannel('videodiary-sync')` notifies other tabs on save/update/delete, triggering `diaryStore.loadEntries()`.
+**Cross-tab sync**: `BroadcastChannel('vidlog-sync')` notifies other tabs on save/update/delete, triggering `diaryStore.loadEntries()`.
 
 **FileSystemDirectoryHandle persistence**: Stored in IndexedDB via `src/services/storage/handle-store.ts`. On boot, the filesystem factory retrieves it and checks `queryPermission`/`requestPermission`.
 
