@@ -3,7 +3,7 @@ import Button from "~/components/ui/Button";
 import StorageBadge from "~/components/ui/StorageBadge";
 import { formatDuration } from "~/utils/time";
 import { downloadBlob } from "~/utils/video";
-import { formatBytes } from "~/utils/format";
+import { formatBytes, getExtensionForMimeType } from "~/utils/format";
 import { settingsStore } from "~/stores/settings";
 import { toastStore } from "~/stores/toast";
 
@@ -26,7 +26,7 @@ export default function PreviewPlayer(props: PreviewPlayerProps) {
   function handleDownload() {
     const name = title() || "recording";
     const safeName = name.replace(/[^a-zA-Z0-9_-]/g, "_");
-    downloadBlob(props.blob, `${safeName}.webm`);
+    downloadBlob(props.blob, `${safeName}${getExtensionForMimeType(props.blob.type)}`);
     toastStore.success("Download started");
   }
 

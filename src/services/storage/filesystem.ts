@@ -1,14 +1,15 @@
 import type { DiaryEntry } from "~/models/types";
 import type { IStorageProvider, StorageCapabilities, ChangeSummary } from "./types";
 import { deserializeMeta, entryToMeta } from "./types";
+import { getExtensionForMimeType } from "~/utils/format";
 
 /**
  * Filesystem Storage Provider — persists diary entries to a user-visible OS folder
  * via the File System Access API.
  *
  * Directory layout (inside user-chosen folder):
- *   entries/{id}.json   — serialized DiaryEntryMeta
- *   videos/{id}.webm    — video blob
+ *   entries/{id}.json          — serialized DiaryEntryMeta
+ *   videos/{id}.{mp4|webm}    — video blob (extension derived from mimeType)
  *
  * IDs use date-prefixed format (e.g. 2026-02-23_143207_a3f7) for human-readable
  * filenames, structurally different from UUIDs to prevent cross-provider collision.
@@ -71,8 +72,9 @@ export class FilesystemStorage implements IStorageProvider {
     try {
       // Write video blob first (so we don't create orphan metadata if this fails)
       if (entry.videoBlob) {
+        const ext = getExtensionForMimeType(entry.mimeType);
         const videoFile = await this.videosDir.getFileHandle(
-          `${entry.id}.webm`,
+          `${entry.id}${ext}`,
           { create: true },
         );
         const writable = await videoFile.createWritable();
@@ -136,10 +138,10 @@ export class FilesystemStorage implements IStorageProvider {
     return entries.sort((a, b) => b.createdAt - a.createdAt);
   }
 
-  async update(id: string, updates: Partial<DiaryEntry>): Promise<void> {
+  async update(entry: DiaryEntry, updates: Partial<DiaryEntry>): Promise<void> {
     this.assertInitialized();
-    this.pendingOwnWrites.add(id);
-    const existing = await this.get(id);
+    this.pendingOwnWrites.add(entry.id);
+    const existing = await this.get(entry.id);
     if (!existing) return;
 
     try {
@@ -147,7 +149,8 @@ export class FilesystemStorage implements IStorageProvider {
 
       // If video blob is being updated, write it
       if (updates.videoBlob) {
-        const videoFile = await this.videosDir.getFileHandle(`${id}.webm`, {
+        const ext = getExtensionForMimeType(updated.mimeType);
+        const videoFile = await this.videosDir.getFileHandle(`${entry.id}${ext}`, {
           create: true,
         });
         const writable = await videoFile.createWritable();
@@ -157,44 +160,44 @@ export class FilesystemStorage implements IStorageProvider {
 
       // Write updated metadata
       const meta = entryToMeta(updated);
-      const metaFile = await this.entriesDir.getFileHandle(`${id}.json`, {
+      const metaFile = await this.entriesDir.getFileHandle(`${entry.id}.json`, {
         create: true,
       });
       const writable = await metaFile.createWritable();
       await writable.write(JSON.stringify(meta, null, 2));
       await writable.close();
     } finally {
-      setTimeout(() => this.pendingOwnWrites.delete(id), 2000);
+      setTimeout(() => this.pendingOwnWrites.delete(entry.id), 2000);
     }
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(entry: DiaryEntry): Promise<void> {
     this.assertInitialized();
-    this.pendingOwnWrites.add(id);
+    this.pendingOwnWrites.add(entry.id);
 
     // Revoke blob URL if somehow still in memory
-    const entry = await this.get(id);
-    if (entry?.videoBlobUrl) {
+    if (entry.videoBlobUrl) {
       URL.revokeObjectURL(entry.videoBlobUrl);
     }
 
     try {
       // Remove files — ignore errors if they don't exist
       try {
-        await this.entriesDir.removeEntry(`${id}.json`);
+        await this.entriesDir.removeEntry(`${entry.id}.json`);
       } catch {
         // Already deleted or doesn't exist
       }
       try {
-        await this.videosDir.removeEntry(`${id}.webm`);
+        const ext = getExtensionForMimeType(entry.mimeType);
+        await this.videosDir.removeEntry(`${entry.id}${ext}`);
       } catch {
         // Already deleted or doesn't exist
       }
 
       // Keep observer's known set in sync with our own writes
-      this.knownEntryIds.delete(id);
+      this.knownEntryIds.delete(entry.id);
     } finally {
-      setTimeout(() => this.pendingOwnWrites.delete(id), 2000);
+      setTimeout(() => this.pendingOwnWrites.delete(entry.id), 2000);
     }
   }
 
@@ -202,10 +205,11 @@ export class FilesystemStorage implements IStorageProvider {
    * Lazy-load a video blob for a specific entry.
    * Returns the Blob, or null if the video file doesn't exist.
    */
-  async loadVideoBlob(id: string): Promise<Blob | null> {
+  async loadVideoBlob(entry: DiaryEntry): Promise<Blob | null> {
     this.assertInitialized();
     try {
-      const videoFile = await this.videosDir.getFileHandle(`${id}.webm`);
+      const ext = getExtensionForMimeType(entry.mimeType);
+      const videoFile = await this.videosDir.getFileHandle(`${entry.id}${ext}`);
       const file = await videoFile.getFile();
       return file;
     } catch {
@@ -228,11 +232,14 @@ export class FilesystemStorage implements IStorageProvider {
       }
     }
 
-    // Find video files without matching entry
+    // Find video files without matching entry (supports both .webm and .mp4)
+    const videoExtensions = [".webm", ".mp4"];
     let orphansRemoved = 0;
     for await (const [name, handle] of this.videosDir.entries()) {
-      if (handle.kind !== "file" || !name.endsWith(".webm")) continue;
-      const id = name.replace(/\.webm$/, "");
+      if (handle.kind !== "file") continue;
+      const ext = videoExtensions.find((e) => name.endsWith(e));
+      if (!ext) continue;
+      const id = name.slice(0, -ext.length);
       if (!entryIds.has(id)) {
         try {
           await this.videosDir.removeEntry(name);

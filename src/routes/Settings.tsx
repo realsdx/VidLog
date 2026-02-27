@@ -9,7 +9,7 @@ import { formatBytes } from "~/utils/format";
 import { isFilesystemAvailable, FilesystemStorage } from "~/services/storage/filesystem";
 import { clearDirectoryHandle } from "~/services/storage/handle-store";
 import type { StorageQuota } from "~/services/storage/opfs";
-import type { VideoQuality, StorageProviderType, RecordingProfile } from "~/models/types";
+import type { VideoQuality, StorageProviderType, RecordingProfile, RecordingFormat } from "~/models/types";
 import { RECORDING_PROFILES, resolveRecordingParams } from "~/services/recorder/profiles";
 
 export default function Settings() {
@@ -47,6 +47,10 @@ export default function Settings() {
 
   function handleProfileChange(profile: RecordingProfile) {
     settingsStore.updateSettings({ recordingProfile: profile });
+  }
+
+  function handleFormatChange(format: RecordingFormat) {
+    settingsStore.updateSettings({ recordingFormat: format });
   }
 
   /** Estimate file size per minute based on current quality + profile */
@@ -344,6 +348,32 @@ export default function Settings() {
           </select>
         </div>
 
+        {/* Recording format */}
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <label for="recording-format" class="text-sm text-text-primary">Recording Format</label>
+            <span class="text-xs text-text-secondary font-mono">
+              {settings().recordingFormat === "av1"
+                ? "Best compression, needs modern GPU"
+                : settings().recordingFormat === "h264"
+                  ? "Wide compatibility, larger files"
+                  : "Legacy format, universal support"}
+            </span>
+          </div>
+          <select
+            id="recording-format"
+            class="bg-bg-elevated border border-border-default rounded-md px-3 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60 focus:ring-2 focus:ring-accent-cyan/30"
+            value={settings().recordingFormat}
+            onChange={(e) =>
+              handleFormatChange(e.currentTarget.value as RecordingFormat)
+            }
+          >
+            <option value="av1">AV1 (MP4)</option>
+            <option value="h264">H.264 (MP4)</option>
+            <option value="webm">VP9 (WebM)</option>
+          </select>
+        </div>
+
         {/* Recording profile */}
         <div class="flex items-center justify-between">
           <div class="flex flex-col">
@@ -373,6 +403,9 @@ export default function Settings() {
           </div>
           <p class="text-xs font-mono text-text-secondary/60 mt-1">
             Actual size depends on content. Static scenes compress much smaller.
+            {settings().recordingFormat === "av1"
+              ? " AV1 typically produces 30–50% smaller files than the estimate above."
+              : ""}
           </p>
         </div>
 

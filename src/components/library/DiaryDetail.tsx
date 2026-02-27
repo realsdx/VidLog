@@ -2,7 +2,7 @@ import { Show, createSignal, createEffect, onMount, onCleanup } from "solid-js";
 import type { DiaryEntry } from "~/models/types";
 import { formatDuration, formatDate, formatTime } from "~/utils/time";
 import { downloadBlob } from "~/utils/video";
-import { formatBytes } from "~/utils/format";
+import { formatBytes, getExtensionForMimeType } from "~/utils/format";
 import { storageManager } from "~/services/storage/manager";
 import Button from "~/components/ui/Button";
 import StorageBadge from "~/components/ui/StorageBadge";
@@ -122,7 +122,7 @@ export default function DiaryDetail(props: DiaryDetailProps) {
     const blob = videoBlob();
     if (blob) {
       const safeName = props.entry.title.replace(/[^a-zA-Z0-9_-]/g, "_");
-      downloadBlob(blob, `${safeName}.webm`);
+      downloadBlob(blob, `${safeName}${getExtensionForMimeType(props.entry.mimeType)}`);
       toastStore.success("Download started");
     }
   }

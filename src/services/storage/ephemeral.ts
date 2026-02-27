@@ -31,18 +31,18 @@ export class EphemeralStorage implements IStorageProvider {
     );
   }
 
-  async update(id: string, updates: Partial<DiaryEntry>): Promise<void> {
-    const existing = this.entries.get(id);
+  async update(entry: DiaryEntry, updates: Partial<DiaryEntry>): Promise<void> {
+    const existing = this.entries.get(entry.id);
     if (existing) {
-      this.entries.set(id, { ...existing, ...updates });
+      this.entries.set(entry.id, { ...existing, ...updates });
     }
   }
 
-  async delete(id: string): Promise<void> {
-    const entry = this.entries.get(id);
-    if (entry?.videoBlobUrl) {
-      URL.revokeObjectURL(entry.videoBlobUrl);
+  async delete(entry: DiaryEntry): Promise<void> {
+    const existing = this.entries.get(entry.id);
+    if (existing?.videoBlobUrl) {
+      URL.revokeObjectURL(existing.videoBlobUrl);
     }
-    this.entries.delete(id);
+    this.entries.delete(entry.id);
   }
 }

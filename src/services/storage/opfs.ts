@@ -1,14 +1,15 @@
 import type { DiaryEntry } from "~/models/types";
 import type { IStorageProvider, StorageCapabilities } from "./types";
 import { deserializeMeta, entryToMeta } from "./types";
+import { getExtensionForMimeType } from "~/utils/format";
 
 /**
  * OPFS Storage Provider — persists diary entries to the Origin Private File System.
  *
  * Directory layout:
  *   /videodiary/
- *     entries/{id}.json   — serialized DiaryEntryMeta
- *     videos/{id}.webm    — video blob
+ *     entries/{id}.json          — serialized DiaryEntryMeta
+ *     videos/{id}.{mp4|webm}    — video blob (extension derived from mimeType)
  *
  * Thumbnails are stored inline as base64 data URLs in the metadata JSON
  * to avoid extra file I/O for the common "load library grid" path.
@@ -69,8 +70,9 @@ export class OPFSStorage implements IStorageProvider {
     try {
       // Write video blob first (so we don't create orphan metadata if this fails)
       if (entry.videoBlob) {
+        const ext = getExtensionForMimeType(entry.mimeType);
         const videoFile = await this.videosDir!.getFileHandle(
-          `${entry.id}.webm`,
+          `${entry.id}${ext}`,
           { create: true },
         );
         const writable = await videoFile.createWritable();
@@ -132,16 +134,17 @@ export class OPFSStorage implements IStorageProvider {
     return entries.sort((a, b) => b.createdAt - a.createdAt);
   }
 
-  async update(id: string, updates: Partial<DiaryEntry>): Promise<void> {
+  async update(entry: DiaryEntry, updates: Partial<DiaryEntry>): Promise<void> {
     this.assertInitialized();
-    const existing = await this.get(id);
+    const existing = await this.get(entry.id);
     if (!existing) return;
 
     const updated = { ...existing, ...updates };
 
     // If video blob is being updated, write it
     if (updates.videoBlob) {
-      const videoFile = await this.videosDir!.getFileHandle(`${id}.webm`, {
+      const ext = getExtensionForMimeType(updated.mimeType);
+      const videoFile = await this.videosDir!.getFileHandle(`${entry.id}${ext}`, {
         create: true,
       });
       const writable = await videoFile.createWritable();
@@ -151,7 +154,7 @@ export class OPFSStorage implements IStorageProvider {
 
     // Write updated metadata
     const meta = entryToMeta(updated);
-    const metaFile = await this.entriesDir!.getFileHandle(`${id}.json`, {
+    const metaFile = await this.entriesDir!.getFileHandle(`${entry.id}.json`, {
       create: true,
     });
     const writable = await metaFile.createWritable();
@@ -159,23 +162,23 @@ export class OPFSStorage implements IStorageProvider {
     await writable.close();
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(entry: DiaryEntry): Promise<void> {
     this.assertInitialized();
 
     // Revoke blob URL if somehow still in memory
-    const entry = await this.get(id);
-    if (entry?.videoBlobUrl) {
+    if (entry.videoBlobUrl) {
       URL.revokeObjectURL(entry.videoBlobUrl);
     }
 
     // Remove files — ignore errors if they don't exist
     try {
-      await this.entriesDir!.removeEntry(`${id}.json`);
+      await this.entriesDir!.removeEntry(`${entry.id}.json`);
     } catch {
       // Already deleted or doesn't exist
     }
     try {
-      await this.videosDir!.removeEntry(`${id}.webm`);
+      const ext = getExtensionForMimeType(entry.mimeType);
+      await this.videosDir!.removeEntry(`${entry.id}${ext}`);
     } catch {
       // Already deleted or doesn't exist
     }
@@ -185,10 +188,11 @@ export class OPFSStorage implements IStorageProvider {
    * Lazy-load a video blob from OPFS for a specific entry.
    * Returns the Blob, or null if the video file doesn't exist.
    */
-  async loadVideoBlob(id: string): Promise<Blob | null> {
+  async loadVideoBlob(entry: DiaryEntry): Promise<Blob | null> {
     this.assertInitialized();
     try {
-      const videoFile = await this.videosDir!.getFileHandle(`${id}.webm`);
+      const ext = getExtensionForMimeType(entry.mimeType);
+      const videoFile = await this.videosDir!.getFileHandle(`${entry.id}${ext}`);
       const file = await videoFile.getFile();
       return file;
     } catch {

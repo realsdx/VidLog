@@ -20,6 +20,9 @@ export type VideoQuality = "low" | "medium" | "high";
 /** Recording profile — controls bitrate/fps/audio independently of resolution */
 export type RecordingProfile = "standard" | "efficient";
 
+/** Recording format — determines container and codec family */
+export type RecordingFormat = "av1" | "h264" | "webm";
+
 /** Storage provider type */
 export type StorageProviderType = "ephemeral" | "opfs" | "filesystem";
 
@@ -46,6 +49,9 @@ export interface DiaryEntry {
   /** Which storage provider this entry lives in */
   storageProvider: StorageProviderType;
 
+  /** MIME type of the recorded video (e.g. "video/mp4;codecs=av01,opus") */
+  mimeType: string;
+
   videoBlob: Blob | null;
   videoBlobUrl: string | null;
 
@@ -68,6 +74,8 @@ export interface DiaryEntryMeta {
   tags: string[];
   templateId: string;
   storageProvider: StorageProviderType;
+  /** MIME type of the recorded video (e.g. "video/mp4;codecs=av01,opus") */
+  mimeType: string;
   thumbnailDataUrl: string | null;
   cloudStatus: CloudStatus;
   cloudProvider: string | null;
@@ -129,6 +137,7 @@ export interface AppSettings {
   defaultTemplateId: string;
   videoQuality: VideoQuality;
   recordingProfile: RecordingProfile;
+  recordingFormat: RecordingFormat;
   maxDuration: number;
   autoGenerateTitle: boolean;
   activeStorageProvider: StorageProviderType;

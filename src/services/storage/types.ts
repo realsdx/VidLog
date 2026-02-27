@@ -37,8 +37,8 @@ export interface IStorageProvider {
   save(entry: DiaryEntry): Promise<void>;
   get(id: string): Promise<DiaryEntry | null>;
   getAll(): Promise<DiaryEntry[]>;
-  update(id: string, updates: Partial<DiaryEntry>): Promise<void>;
-  delete(id: string): Promise<void>;
+  update(entry: DiaryEntry, updates: Partial<DiaryEntry>): Promise<void>;
+  delete(entry: DiaryEntry): Promise<void>;
 
   /** Initialize the provider (e.g. open directory handles). Optional — not all providers need it. */
   init?(): Promise<void>;
@@ -46,8 +46,8 @@ export interface IStorageProvider {
   /** Clean up resources (e.g. release handles). Optional. */
   dispose?(): Promise<void>;
 
-  /** Lazy-load a video blob by entry ID. Providers with lazyBlobs capability must implement this. */
-  loadVideoBlob?(id: string): Promise<Blob | null>;
+  /** Lazy-load a video blob by entry. Providers with lazyBlobs capability must implement this. */
+  loadVideoBlob?(entry: DiaryEntry): Promise<Blob | null>;
 
   /** Get storage quota info. Providers with quota capability must implement this. */
   getQuota?(): Promise<{ usageBytes: number; quotaBytes: number } | null>;
@@ -82,6 +82,7 @@ export function deserializeMeta(raw: Record<string, unknown>): DiaryEntry {
     tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
     templateId: String(raw.templateId ?? "holographic"),
     storageProvider: (raw.storageProvider as StorageProviderType) ?? "ephemeral",
+    mimeType: String(raw.mimeType ?? "video/webm"),
     thumbnailDataUrl: (raw.thumbnailDataUrl as string | null) ?? null,
     cloudStatus: (raw.cloudStatus as CloudStatus) ?? "none",
     cloudProvider: (raw.cloudProvider as string | null) ?? null,
@@ -107,6 +108,7 @@ export function entryToMeta(entry: DiaryEntry): DiaryEntryMeta {
     tags: entry.tags,
     templateId: entry.templateId,
     storageProvider: entry.storageProvider,
+    mimeType: entry.mimeType,
     thumbnailDataUrl: entry.thumbnailDataUrl,
     cloudStatus: entry.cloudStatus,
     cloudProvider: entry.cloudProvider,

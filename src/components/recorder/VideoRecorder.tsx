@@ -63,6 +63,7 @@ export default function VideoRecorder() {
           videoBitsPerSecond: params.videoBitsPerSecond,
           audioBitsPerSecond: params.audioBitsPerSecond,
           frameRate: params.frameRate,
+          preferredFormat: settingsStore.settings().recordingFormat,
           maxDuration: settingsStore.settings().maxDuration,
           onElapsedUpdate: (elapsed) => recorderStore.setElapsed(elapsed),
           onMaxDuration: () => handleStop(),
@@ -92,6 +93,18 @@ export default function VideoRecorder() {
     engine.start();
     recorderStore.setStatus("recording");
     recorderStore.setElapsed(0);
+
+    // Notify if the browser couldn't use the preferred format
+    const preferred = settingsStore.settings().recordingFormat;
+    const negotiated = engine.getNegotiatedMimeType();
+    const expectedContainer = preferred === "webm" ? "video/webm" : "video/mp4";
+    if (!negotiated.startsWith(expectedContainer)) {
+      const labels: Record<string, string> = { "video/mp4": "MP4", "video/webm": "WebM" };
+      const got = negotiated.startsWith("video/mp4") ? labels["video/mp4"] : labels["video/webm"];
+      toastStore.warning(
+        `Your browser doesn't support ${preferred.toUpperCase()} recording. Falling back to ${got}.`,
+      );
+    }
   }
 
   async function handleStop() {
@@ -149,6 +162,7 @@ export default function VideoRecorder() {
       tags,
       templateId: templateStore.activeTemplate().id,
       storageProvider: activeProvider,
+      mimeType: engine?.getNegotiatedMimeType() ?? (blob.type || "video/webm"),
       videoBlob: blob,
       videoBlobUrl: null, // H6: Created lazily on-demand when entry is opened
       thumbnailDataUrl,

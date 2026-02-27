@@ -12,3 +12,13 @@ export function formatBytes(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
+
+/**
+ * Derive a file extension from a MIME type string.
+ * Returns the extension WITH the leading dot (e.g. ".mp4", ".webm").
+ */
+export function getExtensionForMimeType(mime: string): string {
+  if (mime.startsWith("video/mp4")) return ".mp4";
+  if (mime.startsWith("video/webm")) return ".webm";
+  return ".webm"; // safe default — WebM is universally supported for recording
+}

@@ -7,6 +7,7 @@ const defaultSettings: AppSettings = {
   defaultTemplateId: "holographic",
   videoQuality: "medium",
   recordingProfile: "standard",
+  recordingFormat: "av1",
   maxDuration: 1800, // 30 minutes
   autoGenerateTitle: true,
   activeStorageProvider: "ephemeral",

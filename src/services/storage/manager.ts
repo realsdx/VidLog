@@ -130,7 +130,7 @@ class StorageManager {
   async loadVideoBlob(entry: DiaryEntry): Promise<Blob | null> {
     const provider = this.getProviderForEntry(entry);
     if (provider.loadVideoBlob) {
-      return provider.loadVideoBlob(entry.id);
+      return provider.loadVideoBlob(entry);
     }
     // Provider doesn't support lazy loading — blob should already be on the entry
     return entry.videoBlob;
@@ -149,7 +149,7 @@ class StorageManager {
    */
   async update(entry: DiaryEntry, updates: Partial<DiaryEntry>): Promise<void> {
     const provider = this.getProviderForEntry(entry);
-    await provider.update(entry.id, updates);
+    await provider.update(entry, updates);
     this.notifyChange();
   }
 
@@ -158,7 +158,7 @@ class StorageManager {
    */
   async deleteEntry(entry: DiaryEntry): Promise<void> {
     const provider = this.getProviderForEntry(entry);
-    await provider.delete(entry.id);
+    await provider.delete(entry);
     this.notifyChange();
   }
 }

@@ -1,4 +1,4 @@
-import type { DiaryTemplate, TemplateFrame } from "~/models/types";
+import type { DiaryTemplate, TemplateFrame, RecordingFormat } from "~/models/types";
 
 export interface RecordingEngineConfig {
   canvas: HTMLCanvasElement;
@@ -8,6 +8,8 @@ export interface RecordingEngineConfig {
   videoBitsPerSecond: number;
   audioBitsPerSecond: number | undefined;
   frameRate: number;
+  /** User's preferred recording format — determines the codec fallback chain */
+  preferredFormat: RecordingFormat;
   onElapsedUpdate: (elapsed: number) => void;
   onMaxDuration: () => void;
   maxDuration: number;
@@ -40,6 +42,9 @@ export class RecordingEngine {
   private analyser: AnalyserNode | null = null;
   private audioFrequencyData: Uint8Array<ArrayBuffer> | null = null;
   private audioLevel: number = 0;
+
+  /** The MIME type actually negotiated with MediaRecorder (set during start()) */
+  private negotiatedMimeType: string = "video/webm";
 
   constructor(config: RecordingEngineConfig) {
     this.config = config;
@@ -103,8 +108,9 @@ export class RecordingEngine {
       canvasStream.addTrack(track);
     }
 
-    // Determine best supported mime type
-    const mimeType = this.getSupportedMimeType();
+    // Determine best supported mime type for the user's preferred format
+    const mimeType = this.getSupportedMimeType(this.config.preferredFormat);
+    this.negotiatedMimeType = mimeType;
 
     const recorderOptions: MediaRecorderOptions = {
       mimeType,
@@ -160,21 +166,21 @@ export class RecordingEngine {
 
     return new Promise((resolve) => {
       if (!this.mediaRecorder) {
-        resolve(new Blob([], { type: "video/webm" }));
+        resolve(new Blob([], { type: this.negotiatedMimeType }));
         return;
       }
 
       // H3: Timeout — resolve with whatever chunks we have if onstop never fires
       const timeout = setTimeout(() => {
         console.warn("[RecordingEngine] stop() timed out after 5s");
-        const blob = new Blob(this.chunks, { type: this.chunks[0]?.type || "video/webm" });
+        const blob = new Blob(this.chunks, { type: this.chunks[0]?.type || this.negotiatedMimeType });
         this.chunks = [];
         resolve(blob);
       }, 5000);
 
       this.mediaRecorder.onstop = () => {
         clearTimeout(timeout);
-        const blob = new Blob(this.chunks, { type: this.chunks[0]?.type || "video/webm" });
+        const blob = new Blob(this.chunks, { type: this.chunks[0]?.type || this.negotiatedMimeType });
         this.chunks = [];
         resolve(blob);
       };
@@ -186,7 +192,7 @@ export class RecordingEngine {
         this.mediaRecorder.stop();
       } else {
         clearTimeout(timeout);
-        resolve(new Blob([], { type: "video/webm" }));
+        resolve(new Blob([], { type: this.negotiatedMimeType }));
       }
     });
   }
@@ -317,18 +323,48 @@ export class RecordingEngine {
     this.audioLevel = Math.sqrt(sum / data.length);
   }
 
-  /** Find the best supported WebM mime type */
-  private getSupportedMimeType(): string {
-    const types = [
+  /**
+   * Get the MIME type that was negotiated with MediaRecorder during start().
+   * Call after start() to read the actual format used for this recording.
+   */
+  getNegotiatedMimeType(): string {
+    return this.negotiatedMimeType;
+  }
+
+  /** Codec fallback chains per recording format */
+  private static readonly CODEC_CHAINS: Record<RecordingFormat, string[]> = {
+    av1: [
+      "video/mp4;codecs=av01,opus",
+      "video/mp4;codecs=av01,mp4a.40.2",
+      "video/mp4;codecs=av01",
+      // Fall back to WebM if MP4/AV1 is unavailable
+      "video/webm;codecs=vp9,opus",
+      "video/webm",
+    ],
+    h264: [
+      "video/mp4;codecs=avc1,opus",
+      "video/mp4;codecs=avc1,mp4a.40.2",
+      "video/mp4",
+      // Fall back to WebM if MP4/H.264 is unavailable
+      "video/webm;codecs=vp9,opus",
+      "video/webm",
+    ],
+    webm: [
       "video/webm;codecs=vp9,opus",
       "video/webm;codecs=vp9",
       "video/webm;codecs=vp8,opus",
       "video/webm;codecs=vp8",
       "video/webm",
-    ];
-    for (const type of types) {
+    ],
+  };
+
+  /** Find the best supported MIME type for the given recording format preference */
+  private getSupportedMimeType(format: RecordingFormat): string {
+    const chain = RecordingEngine.CODEC_CHAINS[format];
+    for (const type of chain) {
       if (MediaRecorder.isTypeSupported(type)) return type;
     }
+    // Absolute last resort — bare WebM is universally supported
     return "video/webm";
   }
 }
