@@ -25,8 +25,10 @@ export interface CloudFileRef {
 /** Cloud sync metadata attached to a diary entry */
 export interface CloudSyncInfo {
   provider: CloudProviderType;
-  videoFileRef: CloudFileRef;
-  metaFileRef: CloudFileRef;
+  /** Reference to the video file in cloud — null until upload completes */
+  videoFileRef: CloudFileRef | null;
+  /** Reference to the metadata file in cloud — null until upload completes */
+  metaFileRef: CloudFileRef | null;
   syncedAt: number;
   status: CloudSyncEntryStatus;
   lastError?: string;

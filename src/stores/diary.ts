@@ -58,6 +58,10 @@ export const diaryStore = {
       await storageManager.deleteEntry(entry);
       // Remove from cloud sync queue if pending
       cloudSyncManager.dequeueUpload(id);
+      // Delete cloud files if entry was synced or cloud-only
+      if (entry.cloudSync?.videoFileRef || entry.cloudSync?.metaFileRef) {
+        void cloudSyncManager.deleteCloudFiles(entry);
+      }
     }
     setEntries((prev) => prev.filter((e) => e.id !== id));
     if (activeEntry()?.id === id) {

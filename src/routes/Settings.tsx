@@ -1,4 +1,4 @@
-import { createSignal, Show, onMount } from "solid-js";
+import { createSignal, createEffect, Show, onMount } from "solid-js";
 import { settingsStore } from "~/stores/settings";
 import { templateStore } from "~/stores/template";
 import { diaryStore } from "~/stores/diary";
@@ -13,6 +13,7 @@ import { GoogleDriveProvider } from "~/services/cloud/google-drive";
 import { googleAuth } from "~/services/cloud/auth/google";
 import { cloudSyncManager } from "~/services/cloud/manager";
 import type { StorageQuota } from "~/services/storage/opfs";
+import type { CloudQuota } from "~/services/cloud/types";
 import type { VideoQuality, StorageProviderType, RecordingProfile, RecordingFormat } from "~/models/types";
 import { RECORDING_PROFILES, resolveRecordingParams } from "~/services/recorder/profiles";
 
@@ -27,6 +28,19 @@ export default function Settings() {
     googleAuth.hasCustomClientId() ? (googleAuth.getClientId() ?? "") : "",
   );
   const [showDevSettings, setShowDevSettings] = createSignal(false);
+  const [cloudQuota, setCloudQuota] = createSignal<CloudQuota | null>(null);
+
+  // Fetch cloud quota reactively when connected
+  createEffect(() => {
+    if (cloudStore.isConnected()) {
+      const p = cloudSyncManager.provider();
+      if (p) {
+        void p.getQuota().then((q) => setCloudQuota(q));
+      }
+    } else {
+      setCloudQuota(null);
+    }
+  });
 
   // Load storage quota on mount and after provider switches
   async function refreshQuota() {
@@ -651,6 +665,41 @@ export default function Settings() {
                   Sync Now
                 </button>
               </div>
+
+              {/* Cloud storage quota */}
+              <Show when={cloudQuota()}>
+                {(cq) => {
+                  const pct = cq().usagePercent;
+                  const barColor =
+                    pct >= 90
+                      ? "bg-accent-red"
+                      : pct >= 75
+                        ? "bg-accent-amber"
+                        : "bg-accent-cyan";
+                  return (
+                    <div class="flex flex-col gap-1.5 pt-3 border-t border-border-default/30">
+                      <div class="flex items-center justify-between text-xs font-mono text-text-secondary">
+                        <span>Drive Storage</span>
+                        <span>
+                          {formatBytes(cq().usageBytes)}
+                          {cq().totalBytes > 0 ? ` / ${formatBytes(cq().totalBytes)}` : ""}
+                        </span>
+                      </div>
+                      <Show when={cq().totalBytes > 0}>
+                        <div class="w-full h-1 bg-bg-primary rounded-full overflow-hidden">
+                          <div
+                            class={`h-full rounded-full transition-all ${barColor}`}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                        <span class={`text-[10px] font-mono ${pct >= 90 ? "text-accent-red" : "text-text-secondary/50"}`}>
+                          {pct.toFixed(1)}% of Google Drive used
+                        </span>
+                      </Show>
+                    </div>
+                  );
+                }}
+              </Show>
             </div>
           </Show>
 

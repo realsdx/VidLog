@@ -1,6 +1,6 @@
 # AGENTS.md — VidLog
 
-Local-first, sci-fi themed video diary PWA. Records webcam entries with cinematic HUD overlays baked into the video via Canvas 2D compositing. No backend, no accounts — all data stays on-device.
+Local-first, sci-fi themed video diary PWA. Records webcam entries with cinematic HUD overlays baked into the video via Canvas 2D compositing. All data stays on-device by default; optional Google Drive cloud sync (pure client-side OAuth, no backend) lets users back up and stream entries across devices.
 
 ## Tech Stack
 
@@ -38,20 +38,38 @@ import { diaryStore } from "~/stores/diary";  // = src/stores/diary.ts
 2. `App.tsx` — Checks `onboardingStore.isCompleted()` from localStorage
 3. If not onboarded: shows `OnboardingWizard` (storage choice: OPFS / Filesystem / Ephemeral)
 4. On complete: `initializeApp()` registers storage providers via factory pattern, sets active provider, wires `BroadcastChannel` cross-tab sync, loads all entries
-5. Renders `AppShell` wrapping route children
-6. `beforeunload` warns if ephemeral entries exist
+5. Starts filesystem observer (polls for external changes to the user-picked folder)
+6. Non-blocking `initializeCloud()` attempts to restore a previous Google Drive session (always returns false for GIS implicit flow — user must re-sign-in each session)
+7. Renders `AppShell` wrapping route children
+8. `beforeunload` warns if ephemeral entries exist
 
 ### Recording Pipeline
 
 ```
 Webcam MediaStream → hidden <video> → Canvas drawImage → template.render(ctx, frame)
-→ canvas.captureStream(30fps) + audio tracks → MediaRecorder (WebM/VP9) → Blob chunks (1s intervals)
+→ canvas.captureStream(fps) + audio tracks → MediaRecorder → Blob chunks (1s intervals)
 ```
 
 - `RecordingEngine` (`src/services/recorder/engine.ts`) orchestrates the entire pipeline
 - Audio analysis: `AudioContext` + `AnalyserNode` (FFT 256) produces RMS level + frequency data passed to templates each frame
-- Codec fallback chain: VP9+Opus → VP9 → VP8+Opus → VP8 → plain WebM
 - `stop()` has a 5-second timeout safety net if `onstop` never fires
+
+**Recording Profiles** (`src/services/recorder/profiles.ts`):
+| Profile | FPS | Audio Bitrate | Video Bitrate Multiplier |
+|---------|-----|---------------|--------------------------|
+| `standard` | 30 | browser default (~128kbps) | 1.0x |
+| `efficient` | 24 | 32kbps | 0.6x |
+
+`resolveRecordingParams(profile, quality)` combines a profile with a quality preset (`low`/`medium`/`high`) to produce final engine parameters.
+
+**Recording Formats & Codec Fallback Chains** (`RecordingEngine.CODEC_CHAINS`):
+| Format | Primary chain | Fallback |
+|--------|---------------|----------|
+| `av1` | MP4 AV1+Opus → MP4 AV1+AAC → MP4 AV1 | WebM VP9+Opus → WebM |
+| `h264` | MP4 H.264+Opus → MP4 H.264+AAC → MP4 | WebM VP9+Opus → WebM |
+| `webm` | WebM VP9+Opus → VP9 → VP8+Opus → VP8 | WebM |
+
+The engine calls `MediaRecorder.isTypeSupported()` to walk the chain. The negotiated MIME type is stored on the entry (`mimeType` field).
 
 ### Storage Architecture (3 providers)
 
@@ -74,6 +92,42 @@ All providers implement `IStorageProvider` (`src/services/storage/types.ts`). Th
 **Cross-tab sync**: `BroadcastChannel('vidlog-sync')` notifies other tabs on save/update/delete, triggering `diaryStore.loadEntries()`.
 
 **FileSystemDirectoryHandle persistence**: Stored in IndexedDB via `src/services/storage/handle-store.ts`. On boot, the filesystem factory retrieves it and checks `queryPermission`/`requestPermission`.
+
+### Cloud Sync Architecture
+
+Cloud sync is a **separate layer** from the storage system — `ICloudProvider` does not extend `IStorageProvider`. Cloud providers handle upload/download/metadata operations against a remote backend; they don't participate in `StorageManager`'s read/write flow.
+
+**Google Drive implementation** (the only cloud provider):
+- Uses **Google Identity Services (GIS) Token Model** (implicit flow) — no refresh tokens, no backend. User re-signs-in each session via popup.
+- Client ID resolved from: (1) localStorage override (`vidlog-google-client-id`), (2) `VITE_GOOGLE_CLIENT_ID` env var.
+- Files stored in Drive's **`appDataFolder`** (hidden, `drive.appdata` scope — non-sensitive, no broad Drive access).
+- Flat file naming: `video_{entryId}.{ext}` and `entry_{entryId}.json` with `appProperties` for filtering.
+- Video upload uses Drive's **resumable upload** protocol for reliability.
+
+**Sync behavior by storage mode:**
+| Storage Mode | Sync Behavior |
+|-------------|---------------|
+| OPFS | Auto-sync after save (if connected + enabled), manual toggle in Settings |
+| Ephemeral | "Upload to Drive" button in PreviewPlayer only (one-shot upload) |
+| Filesystem | No cloud sync — info message in Settings |
+
+**Cloud-only entries** — When `fetchCloudEntries()` discovers entries in Drive that don't exist locally, it saves metadata-only records to OPFS (with `cloudSync.status = 'cloud-only'`, no video blob). These appear in the library with a cloud badge. Playback streams directly from Drive via `getVideoStreamUrl()`.
+
+**Sync queue** (`CloudSyncManager` in `src/services/cloud/manager.ts`):
+- Persisted in localStorage (`vidlog-sync-queue`)
+- Processes sequentially (one upload at a time)
+- Exponential backoff on failures, max 3 retries
+- Detects quota-exceeded (403) and auth-revoked (401) errors with specific behavior
+- `BroadcastChannel('vidlog-cloud-sync')` notifies other tabs of sync events
+
+**Key files:**
+| File | Purpose |
+|------|---------|
+| `src/services/cloud/types.ts` | `ICloudProvider` interface, `CloudFileRef`, `SyncQueueItem`, `UploadProgress` |
+| `src/services/cloud/google-drive.ts` | Google Drive `ICloudProvider` implementation (~492 lines) |
+| `src/services/cloud/auth/google.ts` | GIS token model, OAuth popup, email fetch (~315 lines) |
+| `src/services/cloud/manager.ts` | `CloudSyncManager` singleton — queue, sync, upload, delete (~490 lines) |
+| `src/stores/cloud.ts` | Reactive store for cloud connection state, auto-sync toggle (~188 lines) |
 
 ### Template System
 
@@ -107,7 +161,7 @@ export const diaryStore = {
 };
 ```
 
-Six stores: `diary`, `recorder`, `template`, `settings`, `onboarding`, `toast`.
+Seven stores: `diary`, `recorder`, `template`, `settings`, `onboarding`, `toast`, `cloud`.
 
 ### Async Work in createEffect (Critical Pattern)
 
@@ -175,6 +229,13 @@ Core types in `src/models/types.ts`:
 - `StorageProviderType` — `'ephemeral' | 'opfs' | 'filesystem'`
 - `TemplateFrame` — per-frame data passed to template renderers
 - `DiaryTemplate` — template definition (id, name, render function, config)
+- `RecordingProfile` — `'standard' | 'efficient'`
+- `RecordingFormat` — `'av1' | 'h264' | 'webm'`
+- `CloudProviderType` — `'google-drive'`
+- `CloudSyncEntryStatus` — `'pending' | 'uploading' | 'synced' | 'cloud-only' | 'failed'`
+- `CloudFileRef` — reference to a file in a cloud provider (`{ provider, fileId, mimeType }`)
+- `CloudSyncInfo` — cloud sync metadata on an entry (`{ provider, videoFileRef, metaFileRef, syncedAt, status, lastError? }`)
+- `AppSettings` — includes `recordingProfile`, `recordingFormat`, `cloudAutoSync`
 
 **ID generation**: `crypto.randomUUID()` for ephemeral/OPFS, date-prefixed IDs for filesystem (`generateFilesystemId()` in `src/utils/id.ts` produces e.g. `2026-02-23_143207_a3f7`).
 
@@ -193,26 +254,35 @@ src/
 │   ├── template.ts                       # Active template selection
 │   ├── settings.ts                       # AppSettings (localStorage-persisted)
 │   ├── onboarding.ts                     # OnboardingState (localStorage-persisted)
-│   └── toast.ts                          # Toast notification queue
+│   ├── toast.ts                          # Toast notification queue
+│   └── cloud.ts                          # Cloud connection state, auto-sync toggle
 ├── services/
 │   ├── init.ts                           # initializeApp(), activateOPFS(), activateFilesystem()
 │   ├── pwa.ts                            # PWA install prompt handler
 │   ├── recorder/
 │   │   ├── engine.ts                     # RecordingEngine (Canvas compositing + MediaRecorder)
 │   │   ├── camera.ts                     # getUserMedia wrapper, device enumeration
+│   │   ├── profiles.ts                   # Recording profiles (standard/efficient), resolveRecordingParams()
 │   │   └── types.ts                      # Re-exports
-│   └── storage/
-│       ├── types.ts                      # IStorageProvider, StorageCapabilities, deserializeMeta()
-│       ├── manager.ts                    # StorageManager singleton (multi-provider, BroadcastChannel)
-│       ├── ephemeral.ts                  # In-memory provider
-│       ├── opfs.ts                       # OPFS provider + isOPFSAvailable(), getStorageQuota()
-│       ├── filesystem.ts                 # File System Access API provider
-│       ├── handle-store.ts              # IndexedDB for FileSystemDirectoryHandle persistence
-│       └── registry.ts                   # ProviderFactory definitions
+│   ├── storage/
+│   │   ├── types.ts                      # IStorageProvider, StorageCapabilities, deserializeMeta()
+│   │   ├── manager.ts                    # StorageManager singleton (multi-provider, BroadcastChannel)
+│   │   ├── ephemeral.ts                  # In-memory provider
+│   │   ├── opfs.ts                       # OPFS provider + isOPFSAvailable(), getStorageQuota()
+│   │   ├── filesystem.ts                 # File System Access API provider
+│   │   ├── handle-store.ts              # IndexedDB for FileSystemDirectoryHandle persistence
+│   │   └── registry.ts                   # ProviderFactory definitions
+│   └── cloud/
+│       ├── types.ts                      # ICloudProvider interface, CloudFileRef, SyncQueueItem
+│       ├── google-drive.ts               # Google Drive ICloudProvider (resumable upload, appDataFolder)
+│       ├── manager.ts                    # CloudSyncManager singleton (queue, sync, upload, delete)
+│       └── auth/
+│           └── google.ts                 # GIS token model, OAuth popup, email fetch
 ├── utils/
 │   ├── id.ts                             # generateId() (UUID), generateFilesystemId()
 │   ├── time.ts                           # formatDuration, formatDate, formatTime, generateAutoTitle
 │   ├── video.ts                          # generateThumbnail, formatBlobSize, downloadBlob
+│   ├── format.ts                         # formatBytes, getExtensionForMimeType
 │   ├── search.ts                         # searchEntries, filterByDate
 │   └── compat.ts                         # checkBrowserCompat, getCameraErrorMessage
 ├── routes/
@@ -244,7 +314,9 @@ src/
         ├── Button.tsx                    # Variant/size button using splitProps
         ├── Toast.tsx                     # Toast notification container
         ├── ErrorBoundary.tsx             # Error boundary with retry/reload
-        └── CompatBanner.tsx             # Browser compatibility warnings
+        ├── CompatBanner.tsx             # Browser compatibility warnings
+        ├── StorageBadge.tsx             # Storage provider indicator badge
+        └── StorageRecoveryBanner.tsx    # Storage fallback recovery prompt
 ```
 
 ## Styling
@@ -268,5 +340,7 @@ This app relies heavily on modern browser APIs. Most have no polyfill:
 - `IndexedDB` — persisting `FileSystemDirectoryHandle`
 - `crypto.randomUUID()` — ID generation
 - Service Worker / PWA — offline support
+- `Google Identity Services (GIS)` — loaded from `accounts.google.com/gsi/client` CDN for OAuth
+- `Google Drive REST API v3` — file upload/download/list via `www.googleapis.com/drive/v3`
 
 `src/utils/compat.ts` checks 5 features at runtime; `CompatBanner` shows warnings for missing ones.

@@ -2,6 +2,7 @@ import { createSignal } from "solid-js";
 import type { DiaryEntry } from "~/models/types";
 import type {
   ICloudProvider,
+  CloudFileRef,
   SyncQueueItem,
   SyncStatus,
   SyncProgress,
@@ -51,6 +52,35 @@ const MAX_RETRIES = 3;
 
 /** Base delay for exponential backoff (ms) */
 const BASE_RETRY_DELAY = 2000;
+
+// ---------------------------------------------------------------------------
+// Cross-Tab Sync via BroadcastChannel
+// ---------------------------------------------------------------------------
+
+let cloudChannel: BroadcastChannel | null = null;
+try {
+  cloudChannel = new BroadcastChannel("vidlog-cloud-sync");
+  cloudChannel.onmessage = (event) => {
+    if (event.data?.type === "cloud-entries-changed") {
+      // Another tab completed a cloud sync — reload entries
+      void (async () => {
+        const { diaryStore } = await import("~/stores/diary");
+        await diaryStore.loadEntries();
+      })();
+    }
+  };
+} catch {
+  // BroadcastChannel not available
+}
+
+/** Notify other tabs that cloud sync modified entries */
+function notifyCloudChange(): void {
+  try {
+    cloudChannel?.postMessage({ type: "cloud-entries-changed" });
+  } catch {
+    // Channel may be closed
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Internal Helpers
@@ -205,10 +235,40 @@ async function processQueue(): Promise<void> {
 
       // Remove from queue
       updateQueue((q) => q.filter((i) => i.entryId !== item.entryId));
+
+      // Notify other tabs that an entry was synced
+      notifyCloudChange();
     } catch (err) {
       console.warn(`[CloudSync] Failed to upload entry ${item.entryId}:`, err);
 
-      // Increment retry count
+      const errorMsg = err instanceof Error ? err.message : "Upload failed";
+      const isQuotaError = errorMsg.includes("403") && errorMsg.toLowerCase().includes("storage");
+      const isAuthError = errorMsg.includes("401") || errorMsg.toLowerCase().includes("unauthorized");
+
+      if (isQuotaError) {
+        // Quota exceeded — don't retry, mark all remaining as failed
+        const { toastStore } = await import("~/stores/toast");
+        toastStore.error("Google Drive storage is full. Free up space or upgrade your plan.");
+        await updateEntryCloudStatus(item.entryId, "failed", {
+          cloudError: "Storage quota exceeded",
+        });
+        updateQueue((q) => q.filter((i) => i.entryId !== item.entryId));
+        // Stop processing the rest — they'll all fail for the same reason
+        break;
+      }
+
+      if (isAuthError) {
+        // Auth revoked or token can't be refreshed — disconnect and stop
+        const { toastStore } = await import("~/stores/toast");
+        toastStore.error("Cloud authentication expired. Please sign in again in Settings.");
+        await updateEntryCloudStatus(item.entryId, "failed", {
+          cloudError: "Authentication expired",
+        });
+        // Don't remove from queue — they can be retried after re-auth
+        break;
+      }
+
+      // Generic failure — increment retry count
       updateQueue((q) =>
         q.map((i) =>
           i.entryId === item.entryId
@@ -217,7 +277,6 @@ async function processQueue(): Promise<void> {
         ),
       );
 
-      const errorMsg = err instanceof Error ? err.message : "Upload failed";
       await updateEntryCloudStatus(item.entryId, "failed", {
         cloudError: errorMsg,
       });
@@ -308,6 +367,9 @@ async function fetchCloudEntries(): Promise<void> {
 
     // Reload entries to reflect changes
     await diaryStore.loadEntries();
+
+    // Notify other tabs about new cloud-only entries
+    notifyCloudChange();
   } catch (err) {
     console.warn("[CloudSync] Failed to fetch cloud entries:", err);
   }
@@ -397,6 +459,7 @@ export const cloudSyncManager = {
   /**
    * Add an entry to the upload queue.
    * Called automatically after saving to OPFS when cloud sync is enabled.
+   * Sets the entry's cloudSync status to "pending" immediately.
    */
   queueUpload(entryId: string): void {
     // Don't add duplicates
@@ -411,6 +474,20 @@ export const cloudSyncManager = {
         lastAttemptAt: null,
       },
     ]);
+
+    // Mark entry as pending immediately so the badge shows up
+    const cloudProvider = provider();
+    if (cloudProvider) {
+      void updateEntryCloudStatus(entryId, "pending", {
+        cloudSync: {
+          provider: cloudProvider.name,
+          videoFileRef: null,
+          metaFileRef: null,
+          syncedAt: 0,
+          status: "pending",
+        },
+      });
+    }
 
     // Start processing if enabled
     if (syncEnabled() && provider()?.isAuthenticated()) {
@@ -433,6 +510,56 @@ export const cloudSyncManager = {
 
   /** Upload a single entry (for ephemeral one-shot uploads). */
   uploadSingle,
+
+  /**
+   * Delete an entry's cloud files (video + metadata).
+   * Called when the user deletes an entry that was synced to the cloud.
+   * Failures are logged but do not throw — local deletion should always succeed.
+   */
+  async deleteCloudFiles(entry: {
+    cloudSync?: { videoFileRef?: CloudFileRef | null; metaFileRef?: CloudFileRef | null } | null;
+  }): Promise<void> {
+    const cloudProvider = provider();
+    if (!cloudProvider || !cloudProvider.isAuthenticated()) return;
+
+    const sync = entry.cloudSync;
+    if (!sync) return;
+
+    const errors: string[] = [];
+
+    // Delete video file from cloud
+    if (sync.videoFileRef) {
+      try {
+        await cloudProvider.deleteVideo(sync.videoFileRef);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        errors.push(`video: ${msg}`);
+        console.warn("[CloudSync] Failed to delete cloud video:", err);
+      }
+    }
+
+    // Delete metadata file from cloud
+    if (sync.metaFileRef) {
+      try {
+        await cloudProvider.deleteMeta(sync.metaFileRef);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        errors.push(`meta: ${msg}`);
+        console.warn("[CloudSync] Failed to delete cloud metadata:", err);
+      }
+    }
+
+    if (errors.length > 0) {
+      // Lazy import to avoid circular deps
+      const { toastStore } = await import("~/stores/toast");
+      toastStore.warning(
+        `Entry deleted locally but cloud cleanup had errors: ${errors.join("; ")}`,
+      );
+    } else {
+      // Successful cloud deletion — notify other tabs
+      notifyCloudChange();
+    }
+  },
 
   /**
    * Full sync cycle: upload pending locals + fetch cloud-only entries.
