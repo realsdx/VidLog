@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <title>Privacy Policy — VidLog</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #0a0a0f;
+        color: #e0e0e8;
+        font-family: 'Inter', system-ui, sans-serif;
+        line-height: 1.7;
+        min-height: 100vh;
+        padding: 2rem 1rem;
+      }
+      .container {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 700;
+        font-size: 1.75rem;
+        color: #00ffff;
+        margin-bottom: 0.25rem;
+      }
+      .subtitle {
+        color: #888;
+        font-size: 0.875rem;
+        margin-bottom: 2rem;
+      }
+      h2 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #00ffff;
+        margin-top: 2rem;
+        margin-bottom: 0.5rem;
+      }
+      p, li {
+        color: #c0c0c8;
+        font-size: 0.9375rem;
+        margin-bottom: 0.75rem;
+      }
+      ul {
+        padding-left: 1.25rem;
+        margin-bottom: 0.75rem;
+      }
+      li { margin-bottom: 0.35rem; }
+      a {
+        color: #00ffff;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      a:hover { color: #66ffff; }
+      .back {
+        display: inline-block;
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+      }
+      .divider {
+        border: none;
+        border-top: 1px solid #1a1a2e;
+        margin: 2rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <a href="/" class="back">&larr; Back to VidLog</a>
+
+      <h1>Privacy Policy</h1>
+      <p class="subtitle">Last updated: February 28, 2026</p>
+
+      <h2>Overview</h2>
+      <p>
+        VidLog is a local-first video diary application. Your recordings and
+        diary entries are stored on your device by default. We do not operate
+        any servers, and we do not collect, transmit, or have access to your
+        data.
+      </p>
+
+      <h2>Data Storage</h2>
+      <p>
+        Depending on the storage mode you choose during setup, your data is
+        stored in one of these locations — all on your device:
+      </p>
+      <ul>
+        <li><strong>OPFS (Origin Private File System)</strong> — browser-managed
+          storage, not visible in your file system.</li>
+        <li><strong>Filesystem</strong> — a folder you choose on your device.</li>
+        <li><strong>Ephemeral</strong> — in-memory only, lost when you close the
+          tab.</li>
+      </ul>
+
+      <h2>Google Drive (Optional)</h2>
+      <p>
+        You may optionally connect your Google account to back up entries to
+        Google Drive. When enabled:
+      </p>
+      <ul>
+        <li>VidLog uses the <code>drive.appdata</code> scope, which grants
+          access only to a hidden, app-specific folder in your Drive — not your
+          personal files.</li>
+        <li>Authentication happens entirely in your browser via Google Identity
+          Services. No tokens are sent to or stored on any server.</li>
+        <li>Access tokens are held in memory only and are never persisted to
+          disk.</li>
+        <li>You can disconnect at any time from Settings. Disconnecting clears
+          all tokens and pending sync operations from your browser.</li>
+      </ul>
+
+      <h2>Data We Collect</h2>
+      <p>None. Specifically:</p>
+      <ul>
+        <li>No analytics or tracking scripts.</li>
+        <li>No cookies (other than what your browser manages for the Google
+          OAuth flow, if you opt in).</li>
+        <li>No server-side logging — there is no server.</li>
+        <li>No telemetry, crash reports, or usage data.</li>
+      </ul>
+
+      <h2>Third-Party Services</h2>
+      <ul>
+        <li><strong>Google Identity Services &amp; Google Drive API</strong> —
+          only if you choose to enable cloud sync. Subject to
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.</li>
+        <li><strong>Google Fonts</strong> — fonts are loaded from Google's CDN.
+          Subject to
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's Privacy Policy</a>.</li>
+      </ul>
+
+      <h2>Data Deletion</h2>
+      <p>
+        Since all data is stored on your device (or in your own Google Drive),
+        you have full control:
+      </p>
+      <ul>
+        <li>Delete individual entries from the Library.</li>
+        <li>Clear all data by clearing your browser's site data.</li>
+        <li>Revoke VidLog's access to your Google Drive from your
+          <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account permissions</a>.</li>
+      </ul>
+
+      <h2>Children's Privacy</h2>
+      <p>
+        VidLog is not directed at children under 13. We do not knowingly
+        collect any personal information from children.
+      </p>
+
+      <h2>Changes to This Policy</h2>
+      <p>
+        If this policy is updated, the "Last updated" date at the top will
+        change. Since there is no account system, we cannot notify you
+        directly — please review this page periodically.
+      </p>
+
+      <hr class="divider" />
+
+      <h2>Contact</h2>
+      <p>
+        If you have questions about this policy, please open an issue on the
+        <a href="https://github.com/realsdx/VidLog" target="_blank" rel="noopener">GitHub repository</a>.
+      </p>
+    </div>
+  </body>
+</html>
