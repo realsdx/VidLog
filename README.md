@@ -4,6 +4,7 @@
 
 Inspired by the holographic interfaces from *Avatar* and the NASA HUD from *The Martian*.
 
+> Note: Just me vibecoding a mildly useful app. For me first, maybe you too.
 ---
 
 ## What It Does
