@@ -438,11 +438,16 @@ export const cloudSyncManager = {
 
   /**
    * Clear the cloud provider (on disconnect).
+   * Also clears the sync queue to prevent entries from a previous user's
+   * session being uploaded to a different user's Drive.
    */
   clearProvider(): void {
     setProviderSignal(null);
     setSyncStatus("idle");
     setSyncProgress(null);
+    // Clear pending uploads — prevents cross-user data leakage if
+    // a different Google account signs in on the same browser.
+    updateQueue(() => []);
   },
 
   /** Enable auto-sync. */
