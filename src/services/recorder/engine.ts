@@ -60,13 +60,36 @@ export class RecordingEngine {
     this.ctx = ctx;
   }
 
+  /** The actual video dimensions after prepare() resolves */
+  get videoDimensions(): { width: number; height: number } {
+    return { width: this.config.canvas.width, height: this.config.canvas.height };
+  }
+
   /** Prepare the engine — starts video playback and render loop (but not recording) */
   async prepare(): Promise<void> {
     await this.videoEl.play();
 
-    // Match canvas to actual video dimensions
-    const vw = this.videoEl.videoWidth;
-    const vh = this.videoEl.videoHeight;
+    // Match canvas to actual video dimensions.
+    // videoWidth/videoHeight may still be 0 right after play() on some browsers,
+    // so wait for loadedmetadata if needed.
+    let vw = this.videoEl.videoWidth;
+    let vh = this.videoEl.videoHeight;
+    if (!vw || !vh) {
+      await new Promise<void>((resolve) => {
+        const onMeta = () => {
+          this.videoEl.removeEventListener("loadedmetadata", onMeta);
+          resolve();
+        };
+        // If metadata is already loaded (readyState >= 1), resolve immediately
+        if (this.videoEl.readyState >= 1) {
+          resolve();
+        } else {
+          this.videoEl.addEventListener("loadedmetadata", onMeta);
+        }
+      });
+      vw = this.videoEl.videoWidth;
+      vh = this.videoEl.videoHeight;
+    }
     if (vw && vh) {
       this.config.canvas.width = vw;
       this.config.canvas.height = vh;

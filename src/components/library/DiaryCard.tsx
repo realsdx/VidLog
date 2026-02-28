@@ -27,7 +27,7 @@ export default function DiaryCard(props: DiaryCardProps) {
           <img
             src={props.entry.thumbnailDataUrl!}
             alt={props.entry.title}
-            class="w-full h-full object-cover"
+            class="w-full h-full object-contain"
           />
         </Show>
       </div>

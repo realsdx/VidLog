@@ -24,8 +24,10 @@ export function militaryHudRenderer(
   const amberDim = "rgba(255, 165, 0, 0.35)";
   const green = "#33ff66";
   const panelBg = "rgba(0, 0, 0, 0.6)";
-  const margin = Math.round(width * 0.03);
-  const fontSize = Math.max(13, Math.round(width * 0.014));
+  // Use the longer dimension for sizing so HUD elements stay legible in portrait
+  const sizingRef = Math.max(width, height);
+  const margin = Math.round(sizingRef * 0.03);
+  const fontSize = Math.max(13, Math.round(sizingRef * 0.014));
   const now = Date.now();
 
   ctx.save();
@@ -47,7 +49,9 @@ export function militaryHudRenderer(
 
   // ── Vertical audio frequency bars (left edge — real data) ──
   if (audioFrequencyData) {
-    drawAudioBars(ctx, margin + 6, margin + 70, height - 140, audioFrequencyData, amber);
+    // Cap height so bars don't stretch disproportionately tall in portrait
+    const barsHeight = Math.max(0, Math.min(height - 140, width * 0.6));
+    drawAudioBars(ctx, margin + 6, margin + 70, barsHeight, audioFrequencyData, amber);
   }
 
   // ── Horizontal audio peak meter (top center) ──

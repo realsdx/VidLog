@@ -25,6 +25,7 @@ export default function VideoRecorder() {
   let engine: RecordingEngine | null = null;
   const [recordedBlob, setRecordedBlob] = createSignal<Blob | null>(null);
   const [recordedDuration, setRecordedDuration] = createSignal(0);
+  const [videoDimensions, setVideoDimensions] = createSignal<{ width: number; height: number }>({ width: 0, height: 0 });
 
   onMount(async () => {
     await initCamera();
@@ -72,6 +73,9 @@ export default function VideoRecorder() {
           onMaxDuration: () => handleStop(),
         });
         await engine.prepare();
+        // Capture actual video dimensions from the engine (resolved from the webcam stream)
+        const dims = engine.videoDimensions;
+        setVideoDimensions({ width: dims.width, height: dims.height });
       }
 
       recorderStore.setStatus("ready");
@@ -166,6 +170,8 @@ export default function VideoRecorder() {
       templateId: templateStore.activeTemplate().id,
       storageProvider: activeProvider,
       mimeType: engine?.getNegotiatedMimeType() ?? (blob.type || "video/webm"),
+      videoWidth: videoDimensions().width || null,
+      videoHeight: videoDimensions().height || null,
       videoBlob: blob,
       videoBlobUrl: null, // H6: Created lazily on-demand when entry is opened
       thumbnailDataUrl,
@@ -235,6 +241,8 @@ export default function VideoRecorder() {
       templateId: templateStore.activeTemplate().id,
       storageProvider: "ephemeral",
       mimeType: engine?.getNegotiatedMimeType() ?? (blob.type || "video/webm"),
+      videoWidth: videoDimensions().width || null,
+      videoHeight: videoDimensions().height || null,
       videoBlob: blob,
       videoBlobUrl: null,
       thumbnailDataUrl,
@@ -309,7 +317,7 @@ export default function VideoRecorder() {
       {/* Recording / ready mode — canvas is always mounted, hidden when in preview */}
       <div class={recorderStore.status() === "stopped" ? "hidden" : ""}>
         {/* Canvas viewport */}
-        <div class="relative w-full max-w-4xl rounded-lg overflow-hidden border border-border-default bg-black aspect-video">
+        <div class="relative w-full max-w-4xl rounded-lg overflow-hidden border border-border-default bg-black flex items-center justify-center min-h-[200px]">
           <Show when={recorderStore.status() === "preparing"}>
             <div class="absolute inset-0 flex items-center justify-center z-10">
               <p class="font-mono text-sm text-text-secondary animate-pulse">
@@ -325,7 +333,7 @@ export default function VideoRecorder() {
 
           <canvas
             ref={canvasRef}
-            class="w-full h-auto block touch-manipulation"
+            class="block touch-manipulation max-w-full"
             style={{ "max-height": "calc(100dvh - 220px)" }}
           />
         </div>

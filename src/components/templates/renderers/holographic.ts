@@ -24,8 +24,10 @@ export function holographicRenderer(
   const cyanMid = "rgba(0, 255, 255, 0.5)";
   const cyanDim = "rgba(0, 255, 255, 0.25)";
   const panelBg = "rgba(0, 10, 20, 0.7)";
-  const margin = Math.round(width * 0.03);
-  const fontSize = Math.max(14, Math.round(width * 0.016));
+  // Use the longer dimension for sizing so HUD elements stay legible in portrait
+  const sizingRef = Math.max(width, height);
+  const margin = Math.round(sizingRef * 0.03);
+  const fontSize = Math.max(14, Math.round(sizingRef * 0.016));
   const now = Date.now();
 
   ctx.save();

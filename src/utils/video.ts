@@ -1,13 +1,14 @@
 /**
  * Generate a thumbnail data URL from a video blob.
  * Captures a frame at the specified time (default 1 second).
+ * Preserves the video's native aspect ratio — the thumbnail's longest
+ * side will be at most `maxSize` pixels (default 320).
  * Times out after 10 seconds to avoid hanging indefinitely.
  */
 export async function generateThumbnail(
   blob: Blob,
   timeSeconds: number = 1,
-  width: number = 320,
-  height: number = 180,
+  maxSize: number = 320,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // M9: Timeout to prevent hanging if video never loads/seeks
@@ -30,6 +31,14 @@ export async function generateThumbnail(
 
     video.addEventListener("seeked", () => {
       clearTimeout(timeout);
+
+      // Compute thumbnail dimensions preserving the video's aspect ratio
+      const vw = video.videoWidth || 320;
+      const vh = video.videoHeight || 180;
+      const scale = Math.min(maxSize / Math.max(vw, vh), 1);
+      const width = Math.round(vw * scale);
+      const height = Math.round(vh * scale);
+
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;

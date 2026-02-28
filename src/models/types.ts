@@ -82,6 +82,10 @@ export interface DiaryEntry {
   /** MIME type of the recorded video (e.g. "video/mp4;codecs=av01,opus") */
   mimeType: string;
 
+  /** Video dimensions — null for entries created before this field existed */
+  videoWidth: number | null;
+  videoHeight: number | null;
+
   videoBlob: Blob | null;
   videoBlobUrl: string | null;
 
@@ -109,6 +113,9 @@ export interface DiaryEntryMeta {
   storageProvider: StorageProviderType;
   /** MIME type of the recorded video (e.g. "video/mp4;codecs=av01,opus") */
   mimeType: string;
+  /** Video dimensions — null for entries created before this field existed */
+  videoWidth: number | null;
+  videoHeight: number | null;
   thumbnailDataUrl: string | null;
   cloudStatus: CloudStatus;
   cloudProvider: string | null;
