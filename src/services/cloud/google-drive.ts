@@ -76,7 +76,10 @@ async function findFile(
   name: string,
   type: string,
 ): Promise<{ id: string; name: string } | null> {
-  const query = `name='${name}' and appProperties has { key='type' and value='${type}' } and trashed=false`;
+  // Escape single quotes to prevent query injection if name/type ever contain them
+  const safeName = name.replace(/'/g, "\\'");
+  const safeType = type.replace(/'/g, "\\'");
+  const query = `name='${safeName}' and appProperties has { key='type' and value='${safeType}' } and trashed=false`;
   const params = new URLSearchParams({
     spaces: "appDataFolder",
     q: query,
@@ -325,10 +328,15 @@ export class GoogleDriveProvider implements ICloudProvider {
   }
 
   async getVideoStreamUrl(fileRef: CloudFileRef): Promise<string> {
-    // For Google Drive, we can use the direct download URL with an auth token.
-    // The access token is included as a query param for <video src> usage.
-    const token = await googleAuth.getValidToken();
-    return `${DRIVE_API}/files/${fileRef.fileId}?alt=media&access_token=${encodeURIComponent(token)}`;
+    // Fetch the video as a blob using the Authorization header (secure),
+    // then return a local object URL. This avoids leaking the access token
+    // in a URL query parameter (which would be visible in browser history,
+    // Referer headers, etc.).
+    const res = await driveFetch(
+      `${DRIVE_API}/files/${fileRef.fileId}?alt=media`,
+    );
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
   }
 
   async deleteVideo(fileRef: CloudFileRef): Promise<void> {

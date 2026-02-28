@@ -142,10 +142,11 @@ export interface ICloudProvider {
   downloadVideo(fileRef: CloudFileRef): Promise<Blob>;
 
   /**
-   * Get a URL that can be used as a <video> src for streaming playback.
-   * The URL includes any necessary auth tokens and is temporary.
+   * Get a URL that can be used as a <video> src for playback.
+   * Downloads the video and returns a local object URL. Caller must
+   * revoke the URL via URL.revokeObjectURL() when done.
    * @param fileRef Reference to the cloud file
-   * @returns A URL string suitable for <video src="...">
+   * @returns A blob: URL string suitable for <video src="...">
    */
   getVideoStreamUrl(fileRef: CloudFileRef): Promise<string>;
 
