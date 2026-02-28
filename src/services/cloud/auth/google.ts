@@ -64,9 +64,51 @@ declare global {
  * If neither is set, the user must configure one in Settings.
  */
 const CLIENT_ID_KEY = "vidlog_google_client_id";
+const TOKEN_STORAGE_KEY = "vidlog_google_token";
 const DEFAULT_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
 const SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
+
+// ---------------------------------------------------------------------------
+// Token Persistence (localStorage)
+// ---------------------------------------------------------------------------
+
+interface PersistedToken {
+  accessToken: string;
+  expiresAt: number;
+  email: string | null;
+}
+
+function persistToken(token: PersistedToken): void {
+  try {
+    localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(token));
+  } catch {
+    // localStorage full or unavailable
+  }
+}
+
+function loadPersistedToken(): PersistedToken | null {
+  try {
+    const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedToken;
+    // Validate shape
+    if (typeof parsed.accessToken !== "string" || typeof parsed.expiresAt !== "number") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearPersistedToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    // Ignore
+  }
+}
 
 // ---------------------------------------------------------------------------
 // State
@@ -153,10 +195,14 @@ function handleTokenResponse(response: TokenResponse): void {
     return;
   }
 
+  const expiresAt = Date.now() + response.expires_in * 1000;
   setAccessToken(response.access_token);
-  setTokenExpiresAt(Date.now() + response.expires_in * 1000);
+  setTokenExpiresAt(expiresAt);
 
-  // Fetch user info to get email
+  // Persist token so it survives page reloads (valid for ~1 hour)
+  persistToken({ accessToken: response.access_token, expiresAt, email: null });
+
+  // Fetch user info to get email (also updates persisted token with email)
   void fetchUserEmail(response.access_token);
 
   pendingResolve?.(response.access_token);
@@ -181,7 +227,13 @@ async function fetchUserEmail(token: string): Promise<void> {
     });
     if (res.ok) {
       const data = await res.json();
-      setUserEmail(data.email ?? null);
+      const email = data.email ?? null;
+      setUserEmail(email);
+      // Update persisted token with email
+      const persisted = loadPersistedToken();
+      if (persisted) {
+        persistToken({ ...persisted, email });
+      }
     }
   } catch {
     // Non-critical — email is just for display
@@ -235,6 +287,7 @@ export const googleAuth = {
     setAccessToken(null);
     setTokenExpiresAt(0);
     setUserEmail(null);
+    clearPersistedToken();
   },
 
   /**
@@ -251,15 +304,24 @@ export const googleAuth = {
   },
 
   /**
-   * Try to silently restore a previous session.
-   * GIS token model does NOT support silent token refresh — this is a no-op
-   * that returns false. The actual re-auth happens when an API call gets a 401.
+   * Try to restore a previous session from persisted token.
+   * Returns true if a valid (non-expired) token was found in localStorage.
    */
   async tryRestoreSession(): Promise<boolean> {
-    // With the implicit flow, tokens are not persisted.
-    // We can't silently restore without a user gesture.
-    // The session state is effectively "not authenticated until they sign in again".
-    return false;
+    const persisted = loadPersistedToken();
+    if (!persisted) return false;
+
+    // Check if the token has expired
+    if (Date.now() >= persisted.expiresAt) {
+      clearPersistedToken();
+      return false;
+    }
+
+    // Restore the in-memory state from the persisted token
+    setAccessToken(persisted.accessToken);
+    setTokenExpiresAt(persisted.expiresAt);
+    setUserEmail(persisted.email);
+    return true;
   },
 
   /** Get the configured OAuth Client ID */

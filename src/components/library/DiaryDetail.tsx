@@ -5,6 +5,8 @@ import { downloadBlob } from "~/utils/video";
 import { formatBytes, getExtensionForMimeType } from "~/utils/format";
 import { storageManager } from "~/services/storage/manager";
 import { cloudSyncManager } from "~/services/cloud/manager";
+import { cloudStore } from "~/stores/cloud";
+import { GoogleDriveProvider } from "~/services/cloud/google-drive";
 import Button from "~/components/ui/Button";
 import StorageBadge from "~/components/ui/StorageBadge";
 import { toastStore } from "~/stores/toast";
@@ -21,6 +23,7 @@ export default function DiaryDetail(props: DiaryDetailProps) {
   const [loadingVideo, setLoadingVideo] = createSignal(false);
   const [isCloudOnly, setIsCloudOnly] = createSignal(false);
   const [isOffline, setIsOffline] = createSignal(!navigator.onLine);
+  const [reconnecting, setReconnecting] = createSignal(false);
 
   let dialogRef: HTMLDivElement | undefined;
   let closeBtnRef: HTMLButtonElement | undefined;
@@ -186,6 +189,28 @@ export default function DiaryDetail(props: DiaryDetailProps) {
     }
   }
 
+  async function handleReconnect() {
+    setReconnecting(true);
+    try {
+      const provider = new GoogleDriveProvider();
+      await cloudStore.connect(provider);
+      // After reconnecting, re-trigger the video load by re-entering the effect.
+      // The effect tracks props.entry which hasn't changed, so we manually
+      // attempt to load the stream URL here.
+      const cp = cloudSyncManager.provider();
+      if (cp && props.entry.cloudSync?.videoFileRef) {
+        setLoadingVideo(true);
+        const streamUrl = await cp.getVideoStreamUrl(props.entry.cloudSync.videoFileRef);
+        setVideoUrl(streamUrl);
+        setLoadingVideo(false);
+      }
+    } catch (err) {
+      console.warn("[DiaryDetail] Reconnect failed:", err);
+    } finally {
+      setReconnecting(false);
+    }
+  }
+
   return (
     <div
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in"
@@ -256,7 +281,15 @@ export default function DiaryDetail(props: DiaryDetailProps) {
                     <line x1="9" y1="9" x2="15" y2="15" />
                   </svg>
                   <p class="text-text-secondary font-mono text-sm">Could not load cloud video</p>
-                  <p class="text-text-secondary/60 font-mono text-xs">Try reconnecting to Google Drive in Settings</p>
+                  <p class="text-text-secondary/60 font-mono text-xs">Your Google Drive session has expired</p>
+                  <button
+                    class="mt-2 px-4 py-2 rounded-md text-sm font-mono font-medium text-accent-cyan border border-accent-cyan/30 bg-accent-cyan/10 hover:bg-accent-cyan/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleReconnect}
+                    disabled={reconnecting()}
+                    type="button"
+                  >
+                    {reconnecting() ? "Reconnecting..." : "Reconnect to Google Drive"}
+                  </button>
                 </div>
               </Show>
 

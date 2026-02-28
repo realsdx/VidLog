@@ -161,8 +161,9 @@ export const cloudStore = {
       console.warn("[cloudStore] Failed to restore session:", err);
     }
 
-    // Session couldn't be restored — clear persisted state
-    persistCloudState({ connectedProvider: null });
+    // Session couldn't be restored (token expired or missing).
+    // Keep connectedProvider in localStorage so the UI can show a
+    // "reconnect" prompt instead of acting like the user was never connected.
     return false;
   },
 
