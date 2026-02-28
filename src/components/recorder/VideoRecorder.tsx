@@ -16,6 +16,9 @@ import TemplatePicker from "~/components/templates/TemplatePicker";
 import { toastStore } from "~/stores/toast";
 import { getCameraErrorMessage } from "~/utils/compat";
 import { getStorageQuota } from "~/services/storage/opfs";
+import { cloudSyncManager } from "~/services/cloud/manager";
+import { cloudStore } from "~/stores/cloud";
+import type { UploadProgress } from "~/services/cloud/types";
 
 export default function VideoRecorder() {
   let canvasRef: HTMLCanvasElement | undefined;
@@ -198,6 +201,75 @@ export default function VideoRecorder() {
     handleDiscard();
   }
 
+  /**
+   * Save the recording locally (ephemeral) and upload to Google Drive.
+   * Used only in ephemeral mode. Saves first so the entry exists in the
+   * diary store, then does a one-shot cloud upload.
+   */
+  async function handleSaveAndUpload(title: string, tags: string[]) {
+    const blob = recordedBlob();
+    if (!blob) return;
+
+    if (!cloudStore.isConnected()) {
+      toastStore.error("Not connected to Google Drive");
+      return;
+    }
+
+    const autoTitle =
+      title || generateAutoTitle(diaryStore.getNextEntryNumber());
+
+    let thumbnailDataUrl: string | null = null;
+    try {
+      thumbnailDataUrl = await generateThumbnail(blob);
+    } catch {
+      // Thumbnail generation is optional
+    }
+
+    const entry: DiaryEntry = {
+      id: generateId(),
+      title: autoTitle,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      duration: recordedDuration(),
+      tags,
+      templateId: templateStore.activeTemplate().id,
+      storageProvider: "ephemeral",
+      mimeType: engine?.getNegotiatedMimeType() ?? (blob.type || "video/webm"),
+      videoBlob: blob,
+      videoBlobUrl: null,
+      thumbnailDataUrl,
+      cloudStatus: "none",
+      cloudProvider: null,
+      cloudFileId: null,
+      cloudUrl: null,
+      cloudError: null,
+    };
+
+    // Save locally first
+    try {
+      await diaryStore.addEntry(entry);
+    } catch (err) {
+      console.error("[VideoRecorder] Failed to save entry:", err);
+      toastStore.error("Failed to save entry. Please try again.");
+      throw err;
+    }
+
+    // Upload to cloud
+    try {
+      await cloudSyncManager.uploadSingle(entry, (_progress: UploadProgress) => {
+        // Progress is tracked in PreviewPlayer via its own signal
+      });
+      toastStore.success("Saved and uploaded to Google Drive");
+    } catch (err) {
+      console.error("[VideoRecorder] Cloud upload failed:", err);
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      toastStore.error(`Saved locally but cloud upload failed: ${msg}`);
+      // Don't re-throw — the local save succeeded
+    }
+
+    handleDiscard();
+  }
+
   function handleTemplateChange() {
     if (engine) {
       engine.setTemplate(templateStore.activeTemplate());
@@ -228,6 +300,7 @@ export default function VideoRecorder() {
             duration={recordedDuration()}
             onDiscard={handleDiscard}
             onSave={handleSave}
+            onSaveAndUpload={handleSaveAndUpload}
           />
         </div>
       </Show>

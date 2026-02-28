@@ -1,6 +1,8 @@
 import { createSignal } from "solid-js";
 import type { DiaryEntry } from "~/models/types";
 import { storageManager } from "~/services/storage/manager";
+import { cloudSyncManager } from "~/services/cloud/manager";
+import { settingsStore } from "~/stores/settings";
 
 const [entries, setEntries] = createSignal<DiaryEntry[]>([]);
 const [activeEntry, setActiveEntry] = createSignal<DiaryEntry | null>(null);
@@ -14,6 +16,18 @@ export const diaryStore = {
   async addEntry(entry: DiaryEntry): Promise<void> {
     await storageManager.save(entry);
     setEntries((prev) => [entry, ...prev]);
+
+    // Queue for cloud sync if:
+    // 1. Cloud provider is connected
+    // 2. Auto-sync is enabled
+    // 3. The entry is stored in OPFS (not filesystem, not ephemeral for auto-sync)
+    if (
+      cloudSyncManager.provider()?.isAuthenticated() &&
+      settingsStore.settings().cloudAutoSync &&
+      entry.storageProvider === "opfs"
+    ) {
+      cloudSyncManager.queueUpload(entry.id);
+    }
   },
 
   /** Update an existing entry — routes to the entry's own provider */
@@ -42,6 +56,8 @@ export const diaryStore = {
     }
     if (entry) {
       await storageManager.deleteEntry(entry);
+      // Remove from cloud sync queue if pending
+      cloudSyncManager.dequeueUpload(id);
     }
     setEntries((prev) => prev.filter((e) => e.id !== id));
     if (activeEntry()?.id === id) {

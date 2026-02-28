@@ -2,6 +2,7 @@ import type {
   DiaryEntry,
   DiaryEntryMeta,
   CloudStatus,
+  CloudSyncInfo,
   StorageProviderType,
 } from "~/models/types";
 
@@ -89,6 +90,7 @@ export function deserializeMeta(raw: Record<string, unknown>): DiaryEntry {
     cloudFileId: (raw.cloudFileId as string | null) ?? null,
     cloudUrl: (raw.cloudUrl as string | null) ?? null,
     cloudError: (raw.cloudError as string | null) ?? null,
+    cloudSync: (raw.cloudSync as CloudSyncInfo | undefined) ?? undefined,
     videoBlob: null,
     videoBlobUrl: null,
   };
@@ -115,5 +117,6 @@ export function entryToMeta(entry: DiaryEntry): DiaryEntryMeta {
     cloudFileId: entry.cloudFileId,
     cloudUrl: entry.cloudUrl,
     cloudError: entry.cloudError,
+    cloudSync: entry.cloudSync,
   };
 }

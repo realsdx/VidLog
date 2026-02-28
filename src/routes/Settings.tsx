@@ -2,12 +2,16 @@ import { createSignal, Show, onMount } from "solid-js";
 import { settingsStore } from "~/stores/settings";
 import { templateStore } from "~/stores/template";
 import { diaryStore } from "~/stores/diary";
+import { cloudStore } from "~/stores/cloud";
 import { storageManager } from "~/services/storage/manager";
 import { activateOPFS, activateFilesystem } from "~/services/init";
 import { isOPFSAvailable, getStorageQuota } from "~/services/storage/opfs";
 import { formatBytes } from "~/utils/format";
 import { isFilesystemAvailable, FilesystemStorage } from "~/services/storage/filesystem";
 import { clearDirectoryHandle } from "~/services/storage/handle-store";
+import { GoogleDriveProvider } from "~/services/cloud/google-drive";
+import { googleAuth } from "~/services/cloud/auth/google";
+import { cloudSyncManager } from "~/services/cloud/manager";
 import type { StorageQuota } from "~/services/storage/opfs";
 import type { VideoQuality, StorageProviderType, RecordingProfile, RecordingFormat } from "~/models/types";
 import { RECORDING_PROFILES, resolveRecordingParams } from "~/services/recorder/profiles";
@@ -19,6 +23,10 @@ export default function Settings() {
   const [switching, setSwitching] = createSignal(false);
   const [quota, setQuota] = createSignal<StorageQuota | null>(null);
   const [fsFolderName, setFsFolderName] = createSignal<string | null>(null);
+  const [clientIdInput, setClientIdInput] = createSignal(
+    googleAuth.hasCustomClientId() ? (googleAuth.getClientId() ?? "") : "",
+  );
+  const [showDevSettings, setShowDevSettings] = createSignal(false);
 
   // Load storage quota on mount and after provider switches
   async function refreshQuota() {
@@ -156,6 +164,19 @@ export default function Settings() {
     storageManager.setActiveProvider("ephemeral");
     setFsFolderName(null);
     await diaryStore.loadEntries();
+  }
+
+  async function handleConnectDrive() {
+    try {
+      const provider = new GoogleDriveProvider();
+      await cloudStore.connect(provider);
+    } catch {
+      // Error already shown via toast in cloudStore.connect()
+    }
+  }
+
+  async function handleDisconnectDrive() {
+    await cloudStore.disconnect();
   }
 
   const opfsAvailable = isOPFSAvailable();
@@ -456,22 +477,189 @@ export default function Settings() {
       {/* Cloud section */}
       <section class="flex flex-col gap-4">
         <h2 class="text-sm font-mono font-bold uppercase tracking-wider text-text-secondary border-b border-border-default pb-2">
-          Cloud Accounts
+          Cloud Sync
         </h2>
 
-        <div class="flex items-center justify-between">
-          <div class="flex flex-col min-w-0">
-            <span class="text-sm text-text-primary">Google Drive</span>
-            <span class="text-xs text-text-secondary font-mono">
-              Coming in Phase 7
-            </span>
-          </div>
-          <button
-            class="px-3 py-1.5 rounded-md text-xs font-mono border border-border-default text-text-secondary cursor-not-allowed opacity-50"
-            disabled
+        {/* Google Drive connection */}
+        <div class="flex flex-col gap-3">
+          <Show
+            when={cloudStore.isConnected()}
+            fallback={
+              <div class="flex flex-col gap-3">
+                {/* No Client ID at all — tell user to configure */}
+                <Show when={!googleAuth.getClientId()}>
+                  <div class="p-3 rounded-md border border-accent-amber/30 bg-accent-amber/5 text-xs font-mono text-accent-amber/80">
+                    Google Drive sync requires an OAuth Client ID. Expand Developer Settings below to configure one.
+                  </div>
+                </Show>
+
+                {/* Main sign-in button */}
+                <div class="flex items-center justify-between">
+                  <div class="flex flex-col min-w-0">
+                    <span class="text-sm text-text-primary">Google Drive</span>
+                    <span class="text-xs text-text-secondary font-mono">
+                      Back up videos to your Google Drive
+                    </span>
+                  </div>
+                  <button
+                    class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-mono border border-accent-cyan/40 text-accent-cyan hover:bg-accent-cyan/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!googleAuth.getClientId() || cloudStore.isConnecting()}
+                    onClick={handleConnectDrive}
+                  >
+                    <Show when={cloudStore.isConnecting()} fallback={
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M15.5 2H8.6c-.4 0-.8.2-1 .6L2.1 11.4c-.2.4-.2.8 0 1.2l5.5 9.2c.2.4.6.6 1 .6h6.8c.4 0 .8-.2 1-.6l5.5-9.2c.2-.4.2-.8 0-1.2L16.4 2.6c-.2-.4-.6-.6-.9-.6z" />
+                        </svg>
+                        Sign in with Google
+                      </>
+                    }>
+                      <span class="animate-pulse">Connecting...</span>
+                    </Show>
+                  </button>
+                </div>
+
+                {/* Developer settings (collapsible) */}
+                <button
+                  class="flex items-center gap-1.5 text-xs font-mono text-text-secondary/50 hover:text-text-secondary transition-colors cursor-pointer self-start"
+                  onClick={() => setShowDevSettings((v) => !v)}
+                >
+                  <svg
+                    width="10" height="10" viewBox="0 0 10 10" fill="currentColor"
+                    class={`transition-transform ${showDevSettings() ? "rotate-90" : ""}`}
+                  >
+                    <path d="M3 1l4 4-4 4z" />
+                  </svg>
+                  Developer Settings
+                </button>
+                <Show when={showDevSettings()}>
+                  <div class="flex flex-col gap-2 p-3 rounded-md border border-border-default bg-bg-elevated">
+                    <label for="google-client-id" class="text-xs font-mono text-text-secondary uppercase tracking-wider">
+                      Custom OAuth Client ID
+                    </label>
+                    <input
+                      id="google-client-id"
+                      type="text"
+                      value={clientIdInput()}
+                      onInput={(e) => setClientIdInput(e.currentTarget.value)}
+                      placeholder="your-client-id.apps.googleusercontent.com"
+                      class="bg-bg-primary border border-border-default rounded-md px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary/40 font-mono focus:outline-none focus:border-accent-cyan/60 focus:ring-2 focus:ring-accent-cyan/30"
+                    />
+                    <p class="text-[10px] font-mono text-text-secondary/50">
+                      Override the default Client ID. Create one at console.cloud.google.com with Drive API enabled.
+                    </p>
+                    <div class="flex items-center gap-2">
+                      <button
+                        class="px-3 py-1.5 rounded-md text-xs font-mono border border-accent-cyan/40 text-accent-cyan hover:bg-accent-cyan/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!clientIdInput().trim()}
+                        onClick={() => {
+                          googleAuth.setClientId(clientIdInput().trim());
+                        }}
+                      >
+                        Save
+                      </button>
+                      <Show when={googleAuth.hasCustomClientId()}>
+                        <button
+                          class="px-3 py-1.5 rounded-md text-xs font-mono border border-border-default text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                          onClick={() => {
+                            googleAuth.clearClientId();
+                            setClientIdInput("");
+                          }}
+                        >
+                          Reset to default
+                        </button>
+                      </Show>
+                    </div>
+                  </div>
+                </Show>
+              </div>
+            }
           >
-            Connect
-          </button>
+            {/* Connected state */}
+            <div class="flex flex-col gap-3 p-3 rounded-md border border-accent-green/30 bg-accent-green/5">
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col min-w-0">
+                  <span class="text-sm text-text-primary">Google Drive</span>
+                  <span class="text-xs font-mono text-accent-green/80">
+                    Connected{cloudStore.userEmail() ? ` — ${cloudStore.userEmail()}` : ""}
+                  </span>
+                </div>
+                <button
+                  class="px-3 py-1.5 rounded-md text-xs font-mono border border-accent-red/30 text-accent-red/70 hover:text-accent-red hover:border-accent-red/50 transition-colors cursor-pointer"
+                  onClick={handleDisconnectDrive}
+                >
+                  Disconnect
+                </button>
+              </div>
+
+              {/* Auto-sync toggle */}
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col min-w-0">
+                  <span class="text-sm text-text-primary">Auto-Sync</span>
+                  <span class="text-xs text-text-secondary font-mono">
+                    Automatically upload new recordings to Drive
+                  </span>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={cloudStore.isAutoSyncEnabled()}
+                  class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-cyan/50 ${
+                    cloudStore.isAutoSyncEnabled()
+                      ? "bg-accent-cyan/40"
+                      : "bg-bg-elevated border border-border-default"
+                  }`}
+                  onClick={() => cloudStore.toggleAutoSync()}
+                >
+                  <span
+                    class={`inline-block h-4 w-4 rounded-full bg-text-primary transition-transform ${
+                      cloudStore.isAutoSyncEnabled()
+                        ? "translate-x-6"
+                        : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Sync status & manual sync */}
+              <div class="flex items-center justify-between text-xs font-mono">
+                <span class="text-text-secondary">
+                  <Show when={cloudSyncManager.syncStatus() === "syncing"}>
+                    <span class="text-accent-amber animate-pulse">
+                      Syncing
+                      <Show when={cloudSyncManager.syncProgress()}>
+                        {" "}({cloudSyncManager.syncProgress()!.current}/{cloudSyncManager.syncProgress()!.total})
+                      </Show>
+                      ...
+                    </span>
+                  </Show>
+                  <Show when={cloudSyncManager.syncStatus() === "idle"}>
+                    <span class="text-text-secondary/60">
+                      {cloudSyncManager.syncQueue().length > 0
+                        ? `${cloudSyncManager.syncQueue().length} pending`
+                        : "Up to date"}
+                    </span>
+                  </Show>
+                  <Show when={cloudSyncManager.syncStatus() === "error"}>
+                    <span class="text-accent-red">Sync error</span>
+                  </Show>
+                </span>
+                <button
+                  class="px-2 py-1 rounded text-xs font-mono border border-border-default text-text-secondary hover:text-text-primary hover:border-accent-cyan/40 transition-colors cursor-pointer disabled:opacity-50"
+                  disabled={cloudSyncManager.syncStatus() === "syncing"}
+                  onClick={() => void cloudStore.syncNow()}
+                >
+                  Sync Now
+                </button>
+              </div>
+            </div>
+          </Show>
+
+          {/* Cloud sync info for filesystem mode */}
+          <Show when={settings().activeStorageProvider === "filesystem"}>
+            <div class="p-3 rounded-md border border-border-default bg-bg-elevated text-xs font-mono text-text-secondary/70">
+              Cloud sync is not available for Filesystem mode. Use your OS file sync tools (e.g. Google Drive desktop, Syncthing) to sync the folder.
+            </div>
+          </Show>
         </div>
       </section>
 

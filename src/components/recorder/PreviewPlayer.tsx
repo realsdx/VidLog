@@ -6,22 +6,29 @@ import { downloadBlob } from "~/utils/video";
 import { formatBytes, getExtensionForMimeType } from "~/utils/format";
 import { settingsStore } from "~/stores/settings";
 import { toastStore } from "~/stores/toast";
+import { cloudStore } from "~/stores/cloud";
 
 interface PreviewPlayerProps {
   blob: Blob;
   duration: number;
   onDiscard: () => void;
   onSave: (title: string, tags: string[]) => void;
+  onSaveAndUpload?: (title: string, tags: string[]) => Promise<void>;
 }
 
 export default function PreviewPlayer(props: PreviewPlayerProps) {
   const [title, setTitle] = createSignal("");
   const [tagsInput, setTagsInput] = createSignal("");
+  const [isUploading, setIsUploading] = createSignal(false);
+  const [uploadProgress, setUploadProgress] = createSignal<number>(0);
   let videoRef: HTMLVideoElement | undefined;
 
   // Create blob URL once, revoke on cleanup to prevent memory leak
   const blobUrl = URL.createObjectURL(props.blob);
   onCleanup(() => URL.revokeObjectURL(blobUrl));
+
+  const isEphemeral = () => settingsStore.settings().activeStorageProvider === "ephemeral";
+  const canUploadToCloud = () => isEphemeral() && cloudStore.isConnected() && !!props.onSaveAndUpload;
 
   function handleDownload() {
     const name = title() || "recording";
@@ -36,6 +43,32 @@ export default function PreviewPlayer(props: PreviewPlayerProps) {
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
     props.onSave(title(), tags);
+  }
+
+  /**
+   * Save locally and upload to Google Drive.
+   * Only available in ephemeral mode when connected to cloud.
+   * Delegates to the parent via onSaveAndUpload prop.
+   */
+  async function handleUploadToCloud() {
+    if (isUploading() || !props.onSaveAndUpload) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const tags = tagsInput()
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+
+    try {
+      await props.onSaveAndUpload(title(), tags);
+    } catch {
+      // Error toast is handled by the parent
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
   }
 
   return (
@@ -104,10 +137,28 @@ export default function PreviewPlayer(props: PreviewPlayerProps) {
         <Button variant="secondary" onClick={handleDownload}>
           Download
         </Button>
+        <Show when={canUploadToCloud()}>
+          <Button
+            variant="secondary"
+            onClick={handleUploadToCloud}
+            disabled={isUploading()}
+          >
+            <Show when={isUploading()} fallback="Upload to Drive">
+              Uploading... {uploadProgress()}%
+            </Show>
+          </Button>
+        </Show>
         <Button variant="danger" onClick={props.onDiscard}>
           Discard
         </Button>
       </div>
+
+      {/* Ephemeral cloud hint */}
+      <Show when={isEphemeral() && !cloudStore.isConnected()}>
+        <p class="text-xs font-mono text-text-secondary/50">
+          Connect to Google Drive in Settings to upload recordings to the cloud
+        </p>
+      </Show>
     </div>
   );
 }

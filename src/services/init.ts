@@ -11,6 +11,8 @@ import {
 import { FilesystemStorage } from "~/services/storage/filesystem";
 import { storeDirectoryHandle } from "~/services/storage/handle-store";
 import type { ChangeSummary } from "~/services/storage/types";
+import { GoogleDriveProvider } from "~/services/cloud/google-drive";
+import { cloudStore } from "~/stores/cloud";
 
 /**
  * All provider factories, explicitly imported.
@@ -94,6 +96,11 @@ export async function initializeApp(): Promise<void> {
 
   // Load entries from ALL registered providers
   await diaryStore.loadEntries();
+
+  // Try restoring cloud session (non-blocking).
+  // With GIS implicit flow this will return false (can't silently restore),
+  // but it checks persisted state so the UI can show "previously connected".
+  void initializeCloud();
 }
 
 /**
@@ -151,6 +158,25 @@ export async function activateFilesystem(
   } catch (err) {
     console.warn("[init] Failed to activate filesystem:", err);
     return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cloud Provider Initialization
+// ---------------------------------------------------------------------------
+
+/**
+ * Try to restore a previous cloud session on app boot.
+ * Non-blocking — failures are silently logged. The user can re-connect
+ * via Settings if the session couldn't be restored (e.g. token expired).
+ */
+async function initializeCloud(): Promise<void> {
+  try {
+    const driveProvider = new GoogleDriveProvider();
+    await cloudStore.tryRestore(driveProvider);
+  } catch (err) {
+    console.warn("[init] Cloud session restore failed:", err);
+    // Non-critical — user can manually connect in Settings
   }
 }
 

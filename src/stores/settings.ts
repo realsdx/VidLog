@@ -11,6 +11,7 @@ const defaultSettings: AppSettings = {
   maxDuration: 1800, // 30 minutes
   autoGenerateTitle: true,
   activeStorageProvider: "ephemeral",
+  cloudAutoSync: true,
 };
 
 /** Read settings from localStorage synchronously on boot */

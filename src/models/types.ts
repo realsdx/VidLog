@@ -4,6 +4,34 @@ export type EntryId = string;
 /** Cloud sync status */
 export type CloudStatus = "none" | "uploading" | "uploaded" | "error";
 
+/** Cloud provider type */
+export type CloudProviderType = "google-drive";
+
+/** Cloud sync entry status — tracks the sync lifecycle of individual entries */
+export type CloudSyncEntryStatus =
+  | "pending"
+  | "uploading"
+  | "synced"
+  | "cloud-only"
+  | "failed";
+
+/** Reference to a file stored in a cloud provider */
+export interface CloudFileRef {
+  provider: CloudProviderType;
+  fileId: string;
+  mimeType: string;
+}
+
+/** Cloud sync metadata attached to a diary entry */
+export interface CloudSyncInfo {
+  provider: CloudProviderType;
+  videoFileRef: CloudFileRef;
+  metaFileRef: CloudFileRef;
+  syncedAt: number;
+  status: CloudSyncEntryStatus;
+  lastError?: string;
+}
+
 /** Recording status */
 export type RecordingStatus =
   | "idle"
@@ -62,6 +90,9 @@ export interface DiaryEntry {
   cloudFileId: string | null;
   cloudUrl: string | null;
   cloudError: string | null;
+
+  /** Structured cloud sync info — used by the cloud sync system */
+  cloudSync?: CloudSyncInfo;
 }
 
 /** Serializable subset of DiaryEntry — stored as JSON in OPFS. Excludes Blob/URL fields. */
@@ -82,6 +113,9 @@ export interface DiaryEntryMeta {
   cloudFileId: string | null;
   cloudUrl: string | null;
   cloudError: string | null;
+
+  /** Structured cloud sync info — used by the cloud sync system */
+  cloudSync?: CloudSyncInfo;
 }
 
 /** Frame data passed to template renderers every animation frame */
@@ -141,6 +175,8 @@ export interface AppSettings {
   maxDuration: number;
   autoGenerateTitle: boolean;
   activeStorageProvider: StorageProviderType;
+  /** Whether to automatically sync OPFS entries to cloud when connected */
+  cloudAutoSync: boolean;
 }
 
 /** Onboarding state — persisted to localStorage */

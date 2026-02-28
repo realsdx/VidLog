@@ -4,6 +4,7 @@ import { formatDuration, formatDate, formatTime } from "~/utils/time";
 import { downloadBlob } from "~/utils/video";
 import { formatBytes, getExtensionForMimeType } from "~/utils/format";
 import { storageManager } from "~/services/storage/manager";
+import { cloudSyncManager } from "~/services/cloud/manager";
 import Button from "~/components/ui/Button";
 import StorageBadge from "~/components/ui/StorageBadge";
 import { toastStore } from "~/stores/toast";
@@ -18,6 +19,8 @@ export default function DiaryDetail(props: DiaryDetailProps) {
   const [videoUrl, setVideoUrl] = createSignal<string | null>(null);
   const [videoBlob, setVideoBlob] = createSignal<Blob | null>(null);
   const [loadingVideo, setLoadingVideo] = createSignal(false);
+  const [isCloudOnly, setIsCloudOnly] = createSignal(false);
+  const [isOffline, setIsOffline] = createSignal(!navigator.onLine);
 
   let dialogRef: HTMLDivElement | undefined;
   let closeBtnRef: HTMLButtonElement | undefined;
@@ -27,10 +30,22 @@ export default function DiaryDetail(props: DiaryDetailProps) {
   // already be null when the parent <Show> tears down this component).
   let entryOwnBlobUrl: string | undefined;
 
-  // Load video blob — either from entry directly or lazy-load from OPFS
-  // NOTE: createEffect must be synchronous. Read all reactive deps first,
-  // then delegate async work to a plain IIFE to avoid breaking SolidJS
-  // dependency tracking and cleanup semantics.
+  // Track online/offline status
+  function handleOnline() { setIsOffline(false); }
+  function handleOffline() { setIsOffline(true); }
+
+  onMount(() => {
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+  });
+
+  onCleanup(() => {
+    window.removeEventListener("online", handleOnline);
+    window.removeEventListener("offline", handleOffline);
+  });
+
+  // Load video blob — either from entry directly, lazy-load from OPFS,
+  // or stream from cloud for cloud-only entries.
   createEffect(() => {
     // -- synchronous reactive reads (tracked by SolidJS) --
     const entry = props.entry;
@@ -40,10 +55,50 @@ export default function DiaryDetail(props: DiaryDetailProps) {
     // Cache the entry's own URL for safe comparison in onCleanup
     entryOwnBlobUrl = blobUrl ?? undefined;
 
+    // Check if this is a cloud-only entry
+    const cloudOnly = entry.cloudSync?.status === "cloud-only";
+    setIsCloudOnly(cloudOnly);
+
     if (blobUrl) {
       // Already have a blob URL (ephemeral entries)
       setVideoUrl(blobUrl);
       setVideoBlob(blob);
+      return;
+    }
+
+    if (cloudOnly) {
+      // Cloud-only entry — stream from cloud provider
+      if (isOffline()) {
+        // Offline — can't stream
+        setVideoUrl(null);
+        return;
+      }
+
+      setLoadingVideo(true);
+      let cancelled = false;
+      onCleanup(() => { cancelled = true; });
+
+      void (async () => {
+        try {
+          const cloudProvider = cloudSyncManager.provider();
+          if (cloudProvider && entry.cloudSync?.videoFileRef) {
+            const streamUrl = await cloudProvider.getVideoStreamUrl(
+              entry.cloudSync.videoFileRef,
+            );
+            if (!cancelled) {
+              setVideoUrl(streamUrl);
+            }
+          }
+        } catch (err) {
+          console.warn("[DiaryDetail] Failed to get cloud stream URL:", err);
+          if (!cancelled) {
+            toastStore.error("Failed to load video from cloud");
+          }
+        }
+        if (!cancelled) {
+          setLoadingVideo(false);
+        }
+      })();
       return;
     }
 
@@ -52,12 +107,9 @@ export default function DiaryDetail(props: DiaryDetailProps) {
       const provider = storageManager.getProviderForEntry(entry);
       if (provider.capabilities.lazyBlobs) {
         setLoadingVideo(true);
-        // H2: Cancellation flag — if effect re-runs or component unmounts,
-        // stale async work won't update signals
         let cancelled = false;
         onCleanup(() => { cancelled = true; });
 
-        // Async work in a non-returned IIFE — SolidJS won't see the Promise
         void (async () => {
           try {
             const loaded = await storageManager.loadVideoBlob(entry);
@@ -174,22 +226,67 @@ export default function DiaryDetail(props: DiaryDetailProps) {
         <Show
           when={videoUrl()}
           fallback={
-            <Show when={loadingVideo()}>
-              <div class="bg-black flex items-center justify-center py-12">
-                <p class="text-text-secondary font-mono text-sm animate-pulse" role="status">
-                  Loading video...
-                </p>
-              </div>
-            </Show>
+            <>
+              {/* Cloud-only + offline: unavailable message */}
+              <Show when={isCloudOnly() && isOffline()}>
+                <div class="bg-black flex flex-col items-center justify-center py-16 gap-3">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-text-secondary/50">
+                    <path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01" />
+                  </svg>
+                  <p class="text-text-secondary font-mono text-sm">Unavailable offline</p>
+                  <p class="text-text-secondary/60 font-mono text-xs">This video is stored in the cloud and requires an internet connection to play</p>
+                </div>
+              </Show>
+
+              {/* Cloud-only + online but still loading */}
+              <Show when={isCloudOnly() && !isOffline() && loadingVideo()}>
+                <div class="bg-black flex items-center justify-center py-12">
+                  <p class="text-accent-cyan/70 font-mono text-sm animate-pulse" role="status">
+                    Connecting to cloud...
+                  </p>
+                </div>
+              </Show>
+
+              {/* Cloud-only + online + not loading + no URL = failed to get stream */}
+              <Show when={isCloudOnly() && !isOffline() && !loadingVideo()}>
+                <div class="bg-black flex flex-col items-center justify-center py-16 gap-3">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-accent-red/60">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="15" y1="9" x2="9" y2="15" />
+                    <line x1="9" y1="9" x2="15" y2="15" />
+                  </svg>
+                  <p class="text-text-secondary font-mono text-sm">Could not load cloud video</p>
+                  <p class="text-text-secondary/60 font-mono text-xs">Try reconnecting to Google Drive in Settings</p>
+                </div>
+              </Show>
+
+              {/* Local entry loading */}
+              <Show when={!isCloudOnly() && loadingVideo()}>
+                <div class="bg-black flex items-center justify-center py-12">
+                  <p class="text-text-secondary font-mono text-sm animate-pulse" role="status">
+                    Loading video...
+                  </p>
+                </div>
+              </Show>
+            </>
           }
         >
-          <div class="bg-black">
+          <div class="bg-black relative">
             <video
               src={videoUrl()!}
               controls
               class="w-full max-h-[50dvh] object-contain"
               aria-label={`Video: ${props.entry.title}`}
             />
+            {/* Cloud streaming indicator */}
+            <Show when={isCloudOnly()}>
+              <div class="absolute top-2 right-2 flex items-center gap-1.5 bg-black/70 rounded px-2 py-1 text-xs font-mono text-accent-cyan/80 backdrop-blur-sm">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
+                </svg>
+                Streaming from cloud
+              </div>
+            </Show>
           </div>
         </Show>
 
@@ -203,9 +300,32 @@ export default function DiaryDetail(props: DiaryDetailProps) {
             </Show>
           </div>
 
-          {/* Storage badge */}
-          <div class="flex items-center gap-2">
+          {/* Storage badge + cloud sync status */}
+          <div class="flex items-center gap-2 flex-wrap">
             <StorageBadge provider={props.entry.storageProvider} />
+            <Show when={props.entry.cloudSync}>
+              {(cloudSync) => (
+                <span
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono border"
+                  classList={{
+                    "bg-accent-cyan/10 text-accent-cyan/70 border-accent-cyan/20":
+                      cloudSync().status === "synced",
+                    "bg-accent-amber/10 text-accent-amber/70 border-accent-amber/20":
+                      cloudSync().status === "cloud-only",
+                    "bg-accent-red/10 text-accent-red/70 border-accent-red/20":
+                      cloudSync().status === "failed",
+                    "bg-text-secondary/10 text-text-secondary/70 border-text-secondary/20":
+                      cloudSync().status === "uploading" || cloudSync().status === "pending",
+                  }}
+                >
+                  <Show when={cloudSync().status === "synced"}>Synced to cloud</Show>
+                  <Show when={cloudSync().status === "cloud-only"}>Cloud only</Show>
+                  <Show when={cloudSync().status === "uploading"}>Uploading...</Show>
+                  <Show when={cloudSync().status === "pending"}>Pending upload</Show>
+                  <Show when={cloudSync().status === "failed"}>Sync failed</Show>
+                </span>
+              )}
+            </Show>
           </div>
 
           <Show when={props.entry.tags.length > 0}>
@@ -224,6 +344,11 @@ export default function DiaryDetail(props: DiaryDetailProps) {
               <Button variant="secondary" size="sm" onClick={handleDownload}>
                 Download
               </Button>
+            </Show>
+            <Show when={isCloudOnly() && !videoBlob()}>
+              <span class="text-xs font-mono text-text-secondary/50">
+                Download not available for cloud-only entries
+              </span>
             </Show>
             <Button
               variant="danger"
