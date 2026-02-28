@@ -37,14 +37,14 @@ export default function AppShell(props: AppShellProps) {
       {/* Top navbar — hidden on mobile */}
       <nav aria-label="Main navigation" class="hidden md:flex items-center justify-between px-6 py-3 border-b border-border-default bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-40 safe-area-x">
         {/* Logo */}
-        <div class="flex items-center gap-2">
+        <A href="/" class="flex items-center gap-2 no-underline">
           <span class="font-display font-bold text-lg tracking-wider text-accent-cyan">
             VIDLOG
           </span>
           <span class="text-[10px] font-mono text-text-secondary/50 mt-1">
             v0.1
           </span>
-        </div>
+        </A>
 
         {/* Nav links + install */}
         <div class="flex items-center gap-1" role="list">
@@ -76,11 +76,11 @@ export default function AppShell(props: AppShellProps) {
 
       {/* Mobile top bar — only logo + install */}
       <header class="flex md:hidden items-center justify-between px-4 pb-2 border-b border-border-default bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-40 safe-area-top safe-area-x" style={{ "--sa-top-min": "0.5rem" }}>
-        <div class="flex items-center gap-2">
+        <A href="/" class="flex items-center gap-2 no-underline">
           <span class="font-display font-bold text-base tracking-wider text-accent-cyan">
             VIDLOG
           </span>
-        </div>
+        </A>
         <Show when={canInstall()}>
           <button
             class="px-2.5 py-1 rounded-md text-[10px] font-mono font-medium text-accent-cyan border border-accent-cyan/30 bg-accent-cyan/10 hover:bg-accent-cyan/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-cyan/50"
