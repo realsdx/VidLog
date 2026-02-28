@@ -127,25 +127,7 @@ VidLog is **local-first**. All data stays on your device — you choose where du
 | **Filesystem Folder** | User-picked OS folder | Yes — syncable via Dropbox, etc. | Chrome, Edge only |
 | **Ephemeral** | Tab lifetime only | No (in-memory) | All |
 
-Key details:
-
-- **Reads merge all providers** — entries from OPFS, filesystem, and ephemeral all appear in a single unified library
-- **Writes go to the active provider only** — set during onboarding or switched in Settings
-- **Lazy blob loading** — OPFS and filesystem providers return `videoBlob: null` from `getAll()`; video is loaded on-demand when the user opens an entry
-- **Cross-tab sync** — `BroadcastChannel` notifies other tabs on save/update/delete so the library stays in sync
-- **Filesystem folder** is persisted in IndexedDB via `FileSystemDirectoryHandle` so it reconnects automatically on next visit (re-prompts for permission if needed)
-- **Write ordering** — video blob is written first, metadata JSON last, preventing orphan metadata on partial failures
-- Storage quota is visible in Settings (OPFS) with usage warnings at 80%
-
 You can switch providers at any time in Settings. Existing entries remain accessible from their original provider.
-
-## Roadmap
-
-- [x] Core recording, templates, storage, library, PWA
-- [ ] Cloud sync (Google Drive) — optional backup, local stays primary
-- [ ] Streaming writes to OPFS, hybrid cloud eviction, FFmpeg.wasm, transcription, custom templates
-
-See the full roadmap in [`PLAN.md`](./PLAN.md).
 
 ## Browser Support
 
