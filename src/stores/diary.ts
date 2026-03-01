@@ -3,6 +3,7 @@ import type { DiaryEntry } from "~/models/types";
 import { storageManager } from "~/services/storage/manager";
 import { cloudSyncManager } from "~/services/cloud/manager";
 import { settingsStore } from "~/stores/settings";
+import { OPFSStorage } from "~/services/storage/opfs";
 
 const [entries, setEntries] = createSignal<DiaryEntry[]>([]);
 const [activeEntry, setActiveEntry] = createSignal<DiaryEntry | null>(null);
@@ -73,6 +74,48 @@ export const diaryStore = {
   async loadEntries(): Promise<void> {
     const all = await storageManager.getAllEntries();
     setEntries(all);
+  },
+
+  /**
+   * Delete all OPFS-stored entries in bulk.
+   * Uses OPFSStorage.clearAll() for efficient bulk deletion.
+   * Non-OPFS entries (filesystem, ephemeral) are not affected.
+   */
+  async clearOPFSEntries(): Promise<void> {
+    const current = entries();
+    const opfsEntries = current.filter((e) => e.storageProvider === "opfs");
+
+    // 1. Revoke in-memory blob URLs for OPFS entries
+    for (const entry of opfsEntries) {
+      if (entry.videoBlobUrl) {
+        URL.revokeObjectURL(entry.videoBlobUrl);
+      }
+    }
+
+    // 2. Bulk-clear OPFS files
+    const opfsProvider = storageManager.getProvider("opfs");
+    if (opfsProvider instanceof OPFSStorage) {
+      await opfsProvider.clearAll();
+    }
+
+    // 3. Clean up cloud sync state for OPFS entries (sequential to avoid rate limits)
+    for (const entry of opfsEntries) {
+      cloudSyncManager.dequeueUpload(entry.id);
+      if (entry.cloudSync?.videoFileRef || entry.cloudSync?.metaFileRef) {
+        try {
+          await cloudSyncManager.deleteCloudFiles(entry);
+        } catch {
+          // Best-effort — cloud copy may remain
+        }
+      }
+    }
+
+    // 4. Notify other tabs and update signal (keep non-OPFS entries)
+    storageManager.notifyChange();
+    setEntries((prev) => prev.filter((e) => e.storageProvider !== "opfs"));
+    if (activeEntry()?.storageProvider === "opfs") {
+      setActiveEntry(null);
+    }
   },
 
   /** Get the next entry number for auto-title generation */

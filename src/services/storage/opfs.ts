@@ -185,6 +185,40 @@ export class OPFSStorage implements IStorageProvider {
   }
 
   /**
+   * Delete ALL entries and videos from OPFS in bulk.
+   * Much faster than per-entry delete() — no JSON parsing or extension lookups.
+   * Collects file names before deleting to avoid modifying the directory during iteration.
+   * Individual file failures are logged and skipped (consistent with delete()).
+   */
+  async clearAll(): Promise<void> {
+    this.assertInitialized();
+
+    const entryNames: string[] = [];
+    for await (const [name] of this.entriesDir!.entries()) {
+      entryNames.push(name);
+    }
+    for (const name of entryNames) {
+      try {
+        await this.entriesDir!.removeEntry(name);
+      } catch {
+        console.warn(`[OPFS] Failed to remove entry file: ${name}`);
+      }
+    }
+
+    const videoNames: string[] = [];
+    for await (const [name] of this.videosDir!.entries()) {
+      videoNames.push(name);
+    }
+    for (const name of videoNames) {
+      try {
+        await this.videosDir!.removeEntry(name);
+      } catch {
+        console.warn(`[OPFS] Failed to remove video file: ${name}`);
+      }
+    }
+  }
+
+  /**
    * Lazy-load a video blob from OPFS for a specific entry.
    * Returns the Blob, or null if the video file doesn't exist.
    */

@@ -69,4 +69,10 @@ export const settingsStore = {
   getQuality(): VideoQuality {
     return settings().videoQuality;
   },
+
+  /** Reset all settings to defaults and remove persisted state */
+  reset(): void {
+    setSettings({ ...defaultSettings });
+    localStorage.removeItem(STORAGE_KEY);
+  },
 };

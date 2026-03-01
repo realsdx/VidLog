@@ -24,6 +24,7 @@ export default function DiaryDetail(props: DiaryDetailProps) {
   const [isCloudOnly, setIsCloudOnly] = createSignal(false);
   const [isOffline, setIsOffline] = createSignal(!navigator.onLine);
   const [reconnecting, setReconnecting] = createSignal(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
 
   let dialogRef: HTMLDivElement | undefined;
   let closeBtnRef: HTMLButtonElement | undefined;
@@ -372,24 +373,77 @@ export default function DiaryDetail(props: DiaryDetailProps) {
           </Show>
 
           {/* Actions */}
-          <div class="flex items-center gap-3 pt-2 border-t border-border-default mt-2">
-            <Show when={videoBlob()}>
-              <Button variant="secondary" size="sm" onClick={handleDownload}>
-                Download
-              </Button>
+          <div class="flex flex-col gap-3 pt-2 border-t border-border-default mt-2">
+            <div class="flex items-center gap-3">
+              <Show when={videoBlob()}>
+                <Button variant="secondary" size="sm" onClick={handleDownload}>
+                  Download
+                </Button>
+              </Show>
+              <Show when={isCloudOnly() && !videoBlob()}>
+                <span class="text-xs font-mono text-text-secondary/50">
+                  Download not available for cloud-only entries
+                </span>
+              </Show>
+              <Show when={!showDeleteConfirm()}>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  Delete
+                </Button>
+              </Show>
+            </div>
+
+            {/* Inline delete confirmation */}
+            <Show when={showDeleteConfirm()}>
+              <div class="flex flex-col gap-3 p-3 rounded-md border border-accent-red/30 bg-accent-red/5">
+                <div class="flex items-start gap-2">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    class="text-accent-red shrink-0 mt-0.5"
+                  >
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                  </svg>
+                  <div class="flex flex-col gap-1">
+                    <span class="text-xs font-mono text-accent-red font-bold">
+                      Delete this entry?
+                    </span>
+                    <span class="text-xs font-mono text-text-secondary/60">
+                      <Show
+                        when={
+                          props.entry.cloudSync?.videoFileRef ||
+                          props.entry.cloudSync?.metaFileRef
+                        }
+                        fallback="This action cannot be undone."
+                      >
+                        This will also delete the cloud copy from Google Drive. This action cannot be undone.
+                      </Show>
+                    </span>
+                  </div>
+                </div>
+                <div class="flex items-center justify-end gap-2">
+                  <button
+                    class="px-3 py-1.5 rounded text-xs font-mono font-medium text-text-secondary hover:text-text-primary bg-bg-elevated hover:bg-bg-elevated/80 border border-border-default transition-colors cursor-pointer"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    class="px-3 py-1.5 rounded text-xs font-mono font-medium text-white bg-accent-red hover:bg-accent-red/80 transition-colors cursor-pointer"
+                    onClick={() => props.onDelete(props.entry.id)}
+                    type="button"
+                  >
+                    Confirm Delete
+                  </button>
+                </div>
+              </div>
             </Show>
-            <Show when={isCloudOnly() && !videoBlob()}>
-              <span class="text-xs font-mono text-text-secondary/50">
-                Download not available for cloud-only entries
-              </span>
-            </Show>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => props.onDelete(props.entry.id)}
-            >
-              Delete
-            </Button>
           </div>
         </div>
       </div>

@@ -1,8 +1,10 @@
-import { createSignal, createEffect, Show, onMount, For, type JSX } from "solid-js";
+import { createSignal, createEffect, createMemo, Show, onMount, For, type JSX } from "solid-js";
 import { settingsStore } from "~/stores/settings";
 import { templateStore } from "~/stores/template";
 import { diaryStore } from "~/stores/diary";
 import { cloudStore } from "~/stores/cloud";
+import { onboardingStore } from "~/stores/onboarding";
+import { toastStore } from "~/stores/toast";
 import { storageManager } from "~/services/storage/manager";
 import { activateOPFS, activateFilesystem } from "~/services/init";
 import { isOPFSAvailable, getStorageQuota } from "~/services/storage/opfs";
@@ -17,19 +19,23 @@ import type { CloudQuota } from "~/services/cloud/types";
 import type { VideoQuality, StorageProviderType, RecordingProfile, RecordingFormat } from "~/models/types";
 import { RECORDING_PROFILES, resolveRecordingParams } from "~/services/recorder/profiles";
 
-type SettingsTab = "storage" | "recording" | "cloud" | "about";
+type SettingsTab = "storage" | "recording" | "cloud" | "about" | "danger";
+
+/** SVG path for the warning triangle icon — shared between TABS and WarningIcon */
+const WARNING_ICON_PATH = "M12 9v2m0 4h.01M5.07 19H19a2 2 0 001.75-2.96l-6.93-12a2 2 0 00-3.5 0l-6.93 12A2 2 0 005.07 19z";
 
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: "storage", label: "Storage", icon: "M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4M4 12c0 2.21 3.58 4 8 4s8-1.79 8-4" },
   { id: "recording", label: "Recording", icon: "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
   { id: "cloud", label: "Cloud", icon: "M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" },
   { id: "about", label: "About", icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+  { id: "danger", label: "Danger Zone", icon: WARNING_ICON_PATH },
 ];
 
 /** Reusable card wrapper */
 function SettingsCard(props: { label?: string; children: JSX.Element; class?: string }) {
   return (
-    <div class={`rounded-lg border border-border-default bg-bg-elevated p-4 flex flex-col gap-3 ${props.class ?? ""}`}>
+    <div class={`rounded-lg border border-border-default bg-bg-elevated p-3 sm:p-4 flex flex-col gap-2.5 sm:gap-3 ${props.class ?? ""}`}>
       <Show when={props.label}>
         <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-text-secondary">
           {props.label}
@@ -43,14 +49,60 @@ function SettingsCard(props: { label?: string; children: JSX.Element; class?: st
 /** Reusable setting row (label left, control right) */
 function SettingRow(props: { children: JSX.Element; border?: boolean }) {
   return (
-    <div class={`flex items-center justify-between gap-4 py-2.5 min-h-[44px] ${props.border !== false ? "border-b border-border-default/30" : ""}`}>
+    <div class={`flex items-center justify-between gap-3 sm:gap-4 py-2 sm:py-2.5 min-h-[44px] ${props.border !== false ? "border-b border-border-default/30" : ""}`}>
       {props.children}
     </div>
   );
 }
 
 /** Styled select */
-const selectClass = "bg-bg-primary border border-border-default rounded-md px-3 py-2 min-h-[44px] text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60 focus:ring-2 focus:ring-accent-cyan/30 cursor-pointer";
+const selectClass = "bg-bg-primary border border-border-default rounded-md px-2.5 sm:px-3 py-1.5 sm:py-2 min-h-[40px] sm:min-h-[44px] text-sm text-text-primary font-mono focus:outline-none focus:border-accent-cyan/60 focus:ring-2 focus:ring-accent-cyan/30 cursor-pointer";
+
+/** Common button class strings for Danger Zone actions */
+const dangerBtnClass = "px-3 py-1.5 rounded-md text-xs font-mono border border-accent-red/30 text-accent-red/70 hover:text-accent-red hover:border-accent-red/50 transition-colors cursor-pointer min-h-[36px] disabled:opacity-50 disabled:cursor-not-allowed";
+const dangerConfirmBtnClass = "px-3 py-1.5 rounded-md text-xs font-mono border border-accent-red/50 bg-accent-red/10 text-accent-red hover:bg-accent-red/20 transition-colors cursor-pointer min-h-[36px] disabled:opacity-50 disabled:cursor-not-allowed";
+const cancelBtnClass = "px-3 py-1.5 rounded-md text-xs font-mono border border-border-default text-text-secondary hover:text-text-primary transition-colors cursor-pointer min-h-[36px]";
+
+/** Warning triangle icon for destructive confirmation panels */
+function WarningIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent-red shrink-0 mt-0.5">
+      <path d={WARNING_ICON_PATH} />
+    </svg>
+  );
+}
+
+/** Inline confirmation panel for destructive actions */
+function ConfirmationPanel(props: {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  loading?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div class="flex flex-col gap-3 p-3 rounded-md border border-accent-red/30 bg-accent-red/5">
+      <div class="flex items-start gap-2">
+        <WarningIcon />
+        <div class="flex flex-col gap-1">
+          <span class="text-xs font-mono text-accent-red font-bold">{props.title}</span>
+          <span class="text-xs font-mono text-text-secondary/60">{props.description}</span>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2">
+        <button class={cancelBtnClass} onClick={props.onCancel} disabled={props.loading}>
+          Cancel
+        </button>
+        <button class={dangerConfirmBtnClass} disabled={props.loading} onClick={props.onConfirm}>
+          <Show when={props.loading} fallback={props.confirmLabel}>
+            <span class="animate-pulse">Processing...</span>
+          </Show>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** Toggle switch */
 function Toggle(props: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
@@ -88,6 +140,13 @@ export default function Settings() {
   );
   const [showDevSettings, setShowDevSettings] = createSignal(false);
   const [cloudQuota, setCloudQuota] = createSignal<CloudQuota | null>(null);
+
+  // Danger Zone signals
+  const [showClearConfirm, setShowClearConfirm] = createSignal(false);
+  const [showResetConfirm, setShowResetConfirm] = createSignal(false);
+  const [clearing, setClearing] = createSignal(false);
+  const [resetting, setResetting] = createSignal(false);
+  const opfsCount = createMemo(() => diaryStore.entries().filter((e) => e.storageProvider === "opfs").length);
 
   // Fetch cloud quota reactively when connected
   createEffect(() => {
@@ -248,47 +307,130 @@ export default function Settings() {
     await cloudStore.disconnect();
   }
 
+  async function handleClearRecordings() {
+    setClearing(true);
+    try {
+      await diaryStore.clearOPFSEntries();
+      await refreshQuota();
+      toastStore.success("All recordings deleted");
+    } catch (err) {
+      console.error("[Settings] Failed to clear data:", err);
+      toastStore.error("Failed to clear recordings. Some files may remain.");
+    } finally {
+      setClearing(false);
+      setShowClearConfirm(false);
+    }
+  }
+
+  async function handleResetPreferences() {
+    setResetting(true);
+    try {
+      settingsStore.reset();
+      onboardingStore.reset();
+
+      if (cloudStore.isConnected()) {
+        try {
+          await cloudStore.disconnect();
+        } catch {
+          // Best-effort — disconnecting anyway
+        }
+      }
+
+      await clearDirectoryHandle();
+      localStorage.removeItem("vidlog-google-client-id");
+      location.reload();
+    } catch (err) {
+      console.error("[Settings] Failed to reset preferences:", err);
+      toastStore.error("Failed to reset preferences.");
+      setResetting(false);
+      setShowResetConfirm(false);
+    }
+  }
+
   const opfsAvailable = isOPFSAvailable();
   const fsAvailable = isFilesystemAvailable();
 
   return (
-    <div class="w-full max-w-2xl flex flex-col gap-5 animate-slide-up-in">
+    <div class="w-full max-w-2xl flex flex-col gap-3 sm:gap-5 animate-slide-up-in">
       {/* Header */}
-      <h1 class="text-xl font-display font-bold tracking-wider text-text-primary">
+      <h1 class="text-lg sm:text-xl font-display font-bold tracking-wider text-text-primary">
         SETTINGS
       </h1>
 
-      {/* Tab bar */}
-      <nav class="flex border-b border-border-default" role="tablist">
-        <For each={TABS}>
-          {(tab) => (
-            <button
-              role="tab"
-              aria-selected={activeTab() === tab.id}
-              aria-controls={`panel-${tab.id}`}
-              class={`flex items-center gap-2 px-4 py-2.5 text-sm font-mono tracking-wide transition-colors cursor-pointer relative ${
-                activeTab() === tab.id
-                  ? "text-accent-cyan"
-                  : "text-text-secondary hover:text-text-primary"
-              }`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="hidden sm:block shrink-0">
-                <path d={tab.icon} />
-              </svg>
-              <span>{tab.label}</span>
-              {/* Active indicator */}
-              <Show when={activeTab() === tab.id}>
-                <div class="absolute bottom-0 left-2 right-2 h-0.5 bg-accent-cyan rounded-full" />
-              </Show>
-            </button>
-          )}
-        </For>
+      {/* Tab bar — desktop: underline style, mobile: scrollable pills */}
+      <nav role="tablist" class="relative">
+        {/* Desktop tabs */}
+        <div class="hidden sm:flex border-b border-border-default">
+          <For each={TABS}>
+            {(tab) => {
+              const isDanger = tab.id === "danger";
+              return (
+                <button
+                  role="tab"
+                  aria-selected={activeTab() === tab.id}
+                  aria-controls={`panel-${tab.id}`}
+                  class={`flex items-center gap-2 px-4 py-2.5 text-sm font-mono tracking-wide transition-colors cursor-pointer relative ${
+                    isDanger
+                      ? activeTab() === tab.id
+                        ? "text-accent-red"
+                        : "text-accent-red/50 hover:text-accent-red/80"
+                      : activeTab() === tab.id
+                        ? "text-accent-cyan"
+                        : "text-text-secondary hover:text-text-primary"
+                  } ${isDanger ? "ml-auto" : ""}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                    <path d={tab.icon} />
+                  </svg>
+                  <span>{tab.label}</span>
+                  <Show when={activeTab() === tab.id}>
+                    <div class={`absolute bottom-0 left-2 right-2 h-0.5 rounded-full ${isDanger ? "bg-accent-red" : "bg-accent-cyan"}`} />
+                  </Show>
+                </button>
+              );
+            }}
+          </For>
+        </div>
+
+        {/* Mobile tabs — horizontally scrollable pills */}
+        <div class="sm:hidden -mx-4 px-4 overflow-x-auto scrollbar-hide">
+          <div class="flex items-center gap-2 pb-1 min-w-max">
+            <For each={TABS}>
+              {(tab) => {
+                const isDanger = tab.id === "danger";
+                const isActive = () => activeTab() === tab.id;
+                return (
+                  <button
+                    role="tab"
+                    aria-selected={isActive()}
+                    aria-controls={`panel-${tab.id}`}
+                    class={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-mono tracking-wide whitespace-nowrap transition-all cursor-pointer border ${
+                      isDanger
+                        ? isActive()
+                          ? "bg-accent-red/15 text-accent-red border-accent-red/40"
+                          : "text-accent-red/50 border-transparent hover:border-accent-red/20"
+                        : isActive()
+                          ? "bg-accent-cyan/10 text-accent-cyan border-accent-cyan/30"
+                          : "text-text-secondary border-transparent hover:border-border-default"
+                    }`}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                      <path d={tab.icon} />
+                    </svg>
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              }}
+            </For>
+          </div>
+        </div>
       </nav>
 
       {/* ─── Storage Tab ─── */}
       <Show when={activeTab() === "storage"}>
-        <div id="panel-storage" role="tabpanel" class="flex flex-col gap-4">
+        <div id="panel-storage" role="tabpanel" class="flex flex-col gap-3 sm:gap-4">
           {/* Provider card */}
           <SettingsCard label="Active Provider">
             <SettingRow>
@@ -336,7 +478,7 @@ export default function Settings() {
                     Change
                   </button>
                   <button
-                    class="px-3 py-1.5 rounded-md text-xs font-mono border border-accent-red/30 text-accent-red/70 hover:text-accent-red hover:border-accent-red/50 transition-colors cursor-pointer min-h-[36px]"
+                    class={dangerBtnClass}
                     onClick={handleDisconnectFolder}
                     disabled={switching()}
                   >
@@ -419,7 +561,7 @@ export default function Settings() {
 
       {/* ─── Recording Tab ─── */}
       <Show when={activeTab() === "recording"}>
-        <div id="panel-recording" role="tabpanel" class="flex flex-col gap-4">
+        <div id="panel-recording" role="tabpanel" class="flex flex-col gap-3 sm:gap-4">
           {/* Video Output card */}
           <SettingsCard label="Video Output">
             <SettingRow>
@@ -537,7 +679,7 @@ export default function Settings() {
 
       {/* ─── Cloud Tab ─── */}
       <Show when={activeTab() === "cloud"}>
-        <div id="panel-cloud" role="tabpanel" class="flex flex-col gap-4">
+        <div id="panel-cloud" role="tabpanel" class="flex flex-col gap-3 sm:gap-4">
           <Show
             when={cloudStore.isConnected()}
             fallback={
@@ -642,10 +784,10 @@ export default function Settings() {
                     Connected{cloudStore.userEmail() ? ` \u2014 ${cloudStore.userEmail()}` : ""}
                   </span>
                 </div>
-                <button
-                  class="px-3 py-1.5 rounded-md text-xs font-mono border border-accent-red/30 text-accent-red/70 hover:text-accent-red hover:border-accent-red/50 transition-colors cursor-pointer shrink-0 min-h-[36px]"
-                  onClick={handleDisconnectDrive}
-                >
+                  <button
+                    class={`${dangerBtnClass} shrink-0`}
+                    onClick={handleDisconnectDrive}
+                  >
                   Disconnect
                 </button>
               </div>
@@ -745,7 +887,7 @@ export default function Settings() {
 
       {/* ─── About Tab ─── */}
       <Show when={activeTab() === "about"}>
-        <div id="panel-about" role="tabpanel" class="flex flex-col gap-4">
+        <div id="panel-about" role="tabpanel" class="flex flex-col gap-3 sm:gap-4">
           <SettingsCard>
             <div class="flex flex-col gap-2 text-xs font-mono text-text-secondary">
               <span class="text-sm text-text-primary font-display tracking-wide">VidLog v0.1.0</span>
@@ -753,6 +895,79 @@ export default function Settings() {
               <span>Chrome/Edge recommended</span>
             </div>
           </SettingsCard>
+        </div>
+      </Show>
+
+      {/* ─── Danger Zone Tab ─── */}
+      <Show when={activeTab() === "danger"}>
+        <div id="panel-danger" role="tabpanel" class="flex flex-col gap-3 sm:gap-4">
+
+          {/* Clear Recordings card */}
+          <SettingsCard label="Clear Recordings" class="border-accent-red/20">
+            <p class="text-xs font-mono text-text-secondary/70 leading-relaxed">
+              Delete all recordings stored in local storage (OPFS). Your preferences and settings will not be affected.
+            </p>
+
+            <Show
+              when={!showClearConfirm()}
+              fallback={
+                <ConfirmationPanel
+                  title={`${opfsCount()} recording(s) will be permanently deleted.`}
+                  description="This action cannot be undone. Cloud-synced copies will be removed where possible."
+                  confirmLabel="Delete All"
+                  loading={clearing()}
+                  onCancel={() => setShowClearConfirm(false)}
+                  onConfirm={handleClearRecordings}
+                />
+              }
+            >
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-mono text-text-secondary/60">
+                  {opfsCount() === 0
+                    ? "No recordings in local storage"
+                    : `${opfsCount()} recording(s) in local storage`}
+                </span>
+                <button
+                  class={dangerBtnClass}
+                  disabled={opfsCount() === 0}
+                  onClick={() => setShowClearConfirm(true)}
+                >
+                  Clear All Data
+                </button>
+              </div>
+            </Show>
+          </SettingsCard>
+
+          {/* Reset Preferences card */}
+          <SettingsCard label="Reset Preferences" class="border-accent-red/20">
+            <p class="text-xs font-mono text-text-secondary/70 leading-relaxed">
+              Clear all settings and return to defaults. This will restart the onboarding wizard. Your recordings will not be deleted.
+            </p>
+
+            <Show
+              when={!showResetConfirm()}
+              fallback={
+                <ConfirmationPanel
+                  title="All settings, cloud connections, and folder links will be cleared."
+                  description="You will be taken back to the welcome screen. Your recordings remain untouched."
+                  confirmLabel="Reset Everything"
+                  loading={resetting()}
+                  onCancel={() => setShowResetConfirm(false)}
+                  onConfirm={handleResetPreferences}
+                />
+              }
+            >
+              <div class="flex items-center justify-end">
+                <button
+                  class={dangerBtnClass}
+                  onClick={() => setShowResetConfirm(true)}
+                >
+                  Reset Preferences
+                </button>
+              </div>
+            </Show>
+          </SettingsCard>
+
         </div>
       </Show>
     </div>

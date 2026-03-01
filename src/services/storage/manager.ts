@@ -42,7 +42,7 @@ class StorageManager {
   }
 
   /** Notify other tabs that entries have changed. */
-  private notifyChange(): void {
+  notifyChange(): void {
     try {
       this.channel?.postMessage({ type: "entries-changed" });
     } catch {
